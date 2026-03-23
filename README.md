@@ -3,6 +3,7 @@
 > A rich, performance-optimised HUD for [Claude Code](https://claude.ai/code) — live model info, token usage, Anthropic API consumption, and Git status in a single compact 6-line display.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Security](https://img.shields.io/badge/security-hardened-green)](SECURITY.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS%20%7C%20WSL-lightgrey)](#choose-your-variant)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell)](https://learn.microsoft.com/en-us/powershell/)
 [![Bash](https://img.shields.io/badge/bash-4.0%2B-green?logo=gnubash)](https://www.gnu.org/software/bash/)
@@ -48,7 +49,7 @@ The gradient bars transition **green → yellow → orange → red** using per-b
 | 7 | **Localisation** | Currency symbol and format, date order and separators, 12h/24h clock, and weekday names adapt to the system locale |
 | 8 | **Caching** | Every I/O-heavy operation is cached (TTL: 120 s API · 8 s git · 30 s effort) — the UI never blocks |
 | 9 | **Atomic writes** | Cache files written via temp → rename; never a partial read |
-| 10 | **Security** | stdin/file size caps, OAuth token control-character validation, no string interpolation into JSON |
+| 10 | **Security** | stdin/file size caps, OAuth token control-character validation, no string interpolation into JSON — see [SECURITY.md](SECURITY.md) |
 
 ---
 
@@ -564,6 +565,8 @@ TTL is checked via filesystem mtime (`stat`), not a timestamp embedded in the JS
 
 ### Security
 
+> Full details on security controls, stability mechanisms, and performance optimisations are documented in [SECURITY.md](SECURITY.md).
+
 | Risk | Mitigation |
 |------|-----------|
 | stdin flooding | Capped at 1 MB via `head -c` / `sys.stdin.read(limit)` |
@@ -589,7 +592,7 @@ Contributions are welcome. Please follow these guidelines:
 
 3. **No new dependencies** — the bash variant requires only `jq`, `curl`, `awk`, `git`, and POSIX tools. The Python variant requires only the stdlib. Do not add new external dependencies.
 
-4. **Security model** — all dynamic values written to cache must go through a safe JSON serialiser. Do not use string interpolation for JSON construction.
+4. **Security model** — all dynamic values written to cache must go through a safe JSON serialiser. Do not use string interpolation for JSON construction. See [SECURITY.md](SECURITY.md) for the full security, stability, and performance requirements.
 
 5. **Performance model** — do not add subshells inside loops, extra `jq` / `python` / `powershell` invocations per field, or synchronous I/O that could block the Claude Code render cycle.
 
