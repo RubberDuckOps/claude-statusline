@@ -1,33 +1,33 @@
 #!/usr/bin/env bats
-# test_statusline.bats — bats-core test suite per statusline.sh
+# test_statusline.bats — bats-core test suite for statusline.sh
 #
-# Esecuzione:
+# Run:
 #   bats test_statusline.bats
 #
-# Dipendenze:
+# Dependencies:
 #   - bats-core  (https://github.com/bats-core/bats-core)
-#   - bats-assert (https://github.com/bats-core/bats-assert)  [opzionale, vedi note]
-#   - jq, awk, date, stat  (già richieste da statusline.sh)
+#   - bats-assert (https://github.com/bats-core/bats-assert)  [optional, see notes]
+#   - jq, awk, date, stat  (already required by statusline.sh)
 #
-# Nota: i test usano $output e $status direttamente (senza bats-assert)
-# per non richiedere dipendenze aggiuntive.
+# Note: tests use $output and $status directly (without bats-assert)
+# to avoid additional dependencies.
 
 # ---------------------------------------------------------------------------
 # Setup / Teardown
 # ---------------------------------------------------------------------------
 
 setup() {
-    # Directory temporanea isolata per ogni test
+    # Isolated temporary directory for each test
     TEST_DIR="$(mktemp -d)"
     export TEST_DIR
 
-    # Imposta TMPDIR → lo script userà questa come CACHE_DIR
+    # Set TMPDIR — the script uses this as CACHE_DIR
     export TMPDIR="$TEST_DIR"
 
-    # Azzera variabili locale per evitare interferenze dal sistema
+    # Clear locale variables to prevent system interference
     unset LC_MONETARY LC_ALL LANG
 
-    # Crea funcs.sh: copia dello script senza la riga di invocazione main
+    # Create funcs.sh: a copy of the script with the main invocation removed
     sed '/^main /d' "$BATS_TEST_DIRNAME/../statusline.sh" > "$TEST_DIR/funcs.sh"
 }
 
@@ -35,14 +35,14 @@ teardown() {
     rm -rf "$TEST_DIR"
 }
 
-# Helper: source funcs.sh nel subshell del test corrente
+# Helper: source funcs.sh in the current test's subshell
 source_fns() {
     # shellcheck disable=SC1090
     source "$TEST_DIR/funcs.sh"
 }
 
-# Helper: source con locale specifico in un subshell
-# Uso: run_with_locale LOCALE 'bash code'
+# Helper: source with a specific locale in a subshell
+# Usage: run_with_locale LOCALE 'bash code'
 run_with_locale() {
     local lc="$1"
     local code="$2"
@@ -59,25 +59,25 @@ run_with_locale() {
 # is_cache_valid
 # ---------------------------------------------------------------------------
 
-@test "is_cache_valid: file inesistente → failure" {
+@test "is_cache_valid: missing file → failure" {
     source_fns
-    run is_cache_valid "$TEST_DIR/inesistente.json" 60
+    run is_cache_valid "$TEST_DIR/missing.json" 60
     [ "$status" -ne 0 ]
 }
 
-@test "is_cache_valid: file recente → success" {
+@test "is_cache_valid: fresh file → success" {
     source_fns
-    local f="$TEST_DIR/recente.json"
+    local f="$TEST_DIR/fresh.json"
     echo '{}' > "$f"
     run is_cache_valid "$f" 60
     [ "$status" -eq 0 ]
 }
 
-@test "is_cache_valid: file scaduto → failure" {
+@test "is_cache_valid: expired file → failure" {
     source_fns
-    local f="$TEST_DIR/scaduto.json"
+    local f="$TEST_DIR/expired.json"
     echo '{}' > "$f"
-    # touch -t: formato YYYYMMDDHHSS, portabile GNU e BSD
+    # touch -t: format YYYYMMDDHHSS, portable across GNU and BSD
     touch -t "202301010000" "$f"
     run is_cache_valid "$f" 60
     [ "$status" -ne 0 ]
@@ -95,22 +95,22 @@ run_with_locale() {
 # atomic_write
 # ---------------------------------------------------------------------------
 
-@test "atomic_write: scrive contenuto base" {
+@test "atomic_write: writes basic content" {
     source_fns
     local f="$TEST_DIR/out.json"
     atomic_write "$f" '{"ok":true}'
     [ "$(cat "$f")" = '{"ok":true}' ]
 }
 
-@test "atomic_write: sovrascrive file esistente" {
+@test "atomic_write: overwrites existing file" {
     source_fns
     local f="$TEST_DIR/out.json"
-    atomic_write "$f" "prima"
-    atomic_write "$f" "dopo"
-    [ "$(cat "$f")" = "dopo" ]
+    atomic_write "$f" "first"
+    atomic_write "$f" "second"
+    [ "$(cat "$f")" = "second" ]
 }
 
-@test "atomic_write: gestisce unicode" {
+@test "atomic_write: handles unicode content" {
     source_fns
     local f="$TEST_DIR/unicode.json"
     atomic_write "$f" '{"emoji":"🌿","sym":"€"}'
@@ -154,7 +154,7 @@ run_with_locale() {
 }
 
 # ---------------------------------------------------------------------------
-# fmt_currency — ogni test usa un subshell con locale esplicito
+# fmt_currency — each test uses a subshell with an explicit locale
 # ---------------------------------------------------------------------------
 
 @test "fmt_currency: it_IT 420 → '4,20 €'" {
@@ -221,18 +221,18 @@ run_with_locale() {
     [ "$output" = "N/D" ]
 }
 
-@test "fmt_currency: stringa vuota en_US → 'N/A'" {
+@test "fmt_currency: empty string en_US → 'N/A'" {
     run_with_locale "en_US" "fmt_currency ''"
     [ "$output" = "N/A" ]
 }
 
-@test "fmt_currency: stringa vuota it_IT → 'N/D'" {
+@test "fmt_currency: empty string it_IT → 'N/D'" {
     run_with_locale "it_IT" "fmt_currency ''"
     [ "$output" = "N/D" ]
 }
 
 # ---------------------------------------------------------------------------
-# _init_currency — testa le variabili CURR_* impostate dalla funzione
+# _init_currency — verifies CURR_* variables set by the function
 # ---------------------------------------------------------------------------
 
 @test "_init_currency: locale it_IT → CURR_SYMBOL=€" {
@@ -268,7 +268,7 @@ run_with_locale() {
     [ "$output" = "0" ]
 }
 
-@test "_init_currency: locale sconosciuto → fallback \$ (en_US)" {
+@test "_init_currency: unknown locale → fallback \$ (en_US)" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         export LC_MONETARY='xx_XX'
@@ -279,7 +279,7 @@ run_with_locale() {
     [ "$output" = '$' ]
 }
 
-@test "_init_currency: locale fr_CH → CURR_SYM_BEFORE=1 e CURR_SYM_SPACE=1" {
+@test "_init_currency: locale fr_CH → CURR_SYM_BEFORE=1 and CURR_SYM_SPACE=1" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         export LC_MONETARY='fr_CH'
@@ -338,7 +338,7 @@ run_with_locale() {
     [ "$output" = "MDY / 1" ]
 }
 
-@test "_init_date_fmt: locale sconosciuto → fallback en_US (MDY, h24=0)" {
+@test "_init_date_fmt: unknown locale → fallback en_US (MDY, h24=0)" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         export LC_MONETARY='xx_XX'
@@ -353,52 +353,52 @@ run_with_locale() {
 # fmt_date
 # ---------------------------------------------------------------------------
 
-@test "fmt_date: stringa vuota en_US → 'N/A'" {
+@test "fmt_date: empty string en_US → 'N/A'" {
     run_with_locale "en_US" "fmt_date ''"
     [ "$output" = "N/A" ]
 }
 
-@test "fmt_date: stringa vuota it_IT → 'N/D'" {
+@test "fmt_date: empty string it_IT → 'N/D'" {
     run_with_locale "it_IT" "fmt_date ''"
     [ "$output" = "N/D" ]
 }
 
-@test "fmt_date: data invalida en_US → 'N/A'" {
-    run_with_locale "en_US" "fmt_date 'non-una-data'"
+@test "fmt_date: invalid date en_US → 'N/A'" {
+    run_with_locale "en_US" "fmt_date 'not-a-date'"
     [ "$output" = "N/A" ]
 }
 
-@test "fmt_date: data invalida it_IT → 'N/D'" {
-    run_with_locale "it_IT" "fmt_date 'non-una-data'"
+@test "fmt_date: invalid date it_IT → 'N/D'" {
+    run_with_locale "it_IT" "fmt_date 'not-a-date'"
     [ "$output" = "N/D" ]
 }
 
-@test "fmt_date: it_IT 2025-01-06T12:00:00Z → inizia con LUN" {
+@test "fmt_date: it_IT 2025-01-06T12:00:00Z → starts with LUN" {
     run_with_locale "it_IT" "fmt_date '2025-01-06T12:00:00Z'"
     [ "$status" -eq 0 ]
     [[ "$output" == LUN* ]]
 }
 
-@test "fmt_date: it_IT 2025-01-12T12:00:00Z → inizia con DOM" {
+@test "fmt_date: it_IT 2025-01-12T12:00:00Z → starts with DOM" {
     run_with_locale "it_IT" "fmt_date '2025-01-12T12:00:00Z'"
     [ "$status" -eq 0 ]
     [[ "$output" == DOM* ]]
 }
 
-@test "fmt_date: it_IT formato output valido (DMY, 24h)" {
+@test "fmt_date: it_IT output format valid (DMY, 24h)" {
     run_with_locale "it_IT" "fmt_date '2025-06-15T14:30:00Z'"
     [ "$status" -eq 0 ]
     [[ "$output" =~ ^[A-Z]{3}\ [0-9]{2}/[0-9]{2}\ H:\ [0-9]{2}:[0-9]{2}$ ]]
 }
 
-@test "fmt_date: en_US → MDY e 12h (AM/PM)" {
+@test "fmt_date: en_US → MDY and 12h (AM/PM)" {
     run_with_locale "en_US" "fmt_date '2025-03-19T18:00:00Z'"
     [ "$status" -eq 0 ]
-    # MM/DD e AM/PM
+    # MM/DD and AM/PM
     [[ "$output" =~ ^[A-Z]{3}\ [0-9]{2}/[0-9]{2}\ H:\ [0-9]{2}:[0-9]{2}\ (AM|PM)$ ]]
 }
 
-@test "fmt_date: de_DE → sep punto" {
+@test "fmt_date: de_DE → dot separator" {
     run_with_locale "de_DE" "fmt_date '2025-03-19T18:00:00Z'"
     [ "$status" -eq 0 ]
     [[ "$output" =~ ^[A-Z]{2}\ [0-9]{2}\.[0-9]{2}\ H:\ [0-9]{2}:[0-9]{2}$ ]]
@@ -408,7 +408,7 @@ run_with_locale() {
 # read_effort_cascade
 # ---------------------------------------------------------------------------
 
-@test "read_effort_cascade: default 'normal' senza settings file" {
+@test "read_effort_cascade: defaults to 'normal' when no settings file exists" {
     source_fns
     local ws="$TEST_DIR/workspace_vuoto"
     mkdir -p "$ws"
@@ -416,7 +416,7 @@ run_with_locale() {
     [ "$output" = "normal" ]
 }
 
-@test "read_effort_cascade: legge settings.local.json" {
+@test "read_effort_cascade: reads settings.local.json" {
     source_fns
     local ws="$TEST_DIR/ws"
     mkdir -p "$ws/.claude"
@@ -425,22 +425,22 @@ run_with_locale() {
     [ "$output" = "high" ]
 }
 
-@test "read_effort_cascade: usa cache valida" {
+@test "read_effort_cascade: uses a valid cache" {
     source_fns
     local ws="$TEST_DIR/ws"
     mkdir -p "$ws"
-    # Scrive cache manualmente
+    # Manually write cache
     echo '{"effort":"medium"}' > "$EFFORT_CACHE"
     run read_effort_cascade "$ws"
     [ "$output" = "medium" ]
 }
 
-@test "read_effort_cascade: cache scaduta → rilegge settings" {
+@test "read_effort_cascade: expired cache → re-reads settings" {
     source_fns
     local ws="$TEST_DIR/ws"
     mkdir -p "$ws/.claude"
     echo '{"effortLevel":"max"}' > "$ws/.claude/settings.local.json"
-    # Cache scaduta
+    # Expired cache
     echo '{"effort":"old"}' > "$EFFORT_CACHE"
     touch -t "202301010000" "$EFFORT_CACHE"
     run read_effort_cascade "$ws"
@@ -451,11 +451,11 @@ run_with_locale() {
 # read_git_status
 # ---------------------------------------------------------------------------
 
-@test "read_git_status: usa cache valida con path corretto" {
+@test "read_git_status: uses valid cache when path matches" {
     source_fns
     local ws="$TEST_DIR/ws"
     mkdir -p "$ws"
-    # Scrive cache manualmente
+    # Manually write cache
     jq -n \
         --arg branch "main" \
         --argjson staged 2 \
@@ -467,18 +467,18 @@ run_with_locale() {
         source \"$TEST_DIR/funcs.sh\"
         read -r b; read -r s; read -r m
     " < <(read_git_status "$ws")
-    # Verifica che la cache sia stata letta
+    # Verify that the cache was read
     [ "$status" -eq 0 ]
 }
 
-@test "read_git_status: directory non-git → branch vuoto" {
+@test "read_git_status: non-git directory → empty branch" {
     source_fns
     local ws="$TEST_DIR/non_git_dir"
     mkdir -p "$ws"
-    # Azzera cache
+    # Clear cache
     rm -f "$GIT_CACHE"
 
-    # Usa stub git che non trova branch
+    # Use a git stub that returns no branch
     mkdir -p "$TEST_DIR/bin"
     cat > "$TEST_DIR/bin/git" << 'GITSTUB'
 #!/bin/sh
@@ -492,19 +492,19 @@ GITSTUB
         source \"$TEST_DIR/funcs.sh\"
         read_git_status \"$ws\"
     "
-    # Prima riga = branch, deve essere vuota
+    # First line = branch, must be empty
     local first_line
     first_line=$(echo "$output" | head -1)
     [ "$first_line" = "" ]
 }
 
 # ---------------------------------------------------------------------------
-# main — test di integrazione
+# main — integration tests
 # ---------------------------------------------------------------------------
 
 _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"context_window_size":200000,"used_percentage":42,"total_input_tokens":5000,"total_output_tokens":1000,"current_usage":{"cache_read_input_tokens":0}},"workspace":{"current_dir":"/tmp"}}'
 
-@test "main: output contiene ENV: con payload minimo" {
+@test "main: output contains ENV: with minimal payload" {
     local input_file="$TEST_DIR/input.json"
     printf '%s' "$_MINIMAL_PAYLOAD" > "$input_file"
     run bash -c "
@@ -515,7 +515,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [[ "$output" == *"ENV:"* ]]
 }
 
-@test "main: output contiene XTRA USG: con payload minimo" {
+@test "main: output contains XTRA USG: with minimal payload" {
     local input_file="$TEST_DIR/input.json"
     printf '%s' "$_MINIMAL_PAYLOAD" > "$input_file"
     run bash -c "
@@ -526,7 +526,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [[ "$output" == *"XTRA USG:"* ]]
 }
 
-@test "main: output contiene CONTEXT_WINDOW con payload minimo" {
+@test "main: output contains CONTEXT_WINDOW with minimal payload" {
     local input_file="$TEST_DIR/input.json"
     printf '%s' "$_MINIMAL_PAYLOAD" > "$input_file"
     run bash -c "
@@ -537,7 +537,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [[ "$output" == *"CONTEXT_WINDOW"* ]]
 }
 
-@test "main: input vuoto non genera ERRORE STATUSBAR" {
+@test "main: empty input does not produce ERRORE STATUSBAR" {
     local input_file="$TEST_DIR/input.json"
     printf '' > "$input_file"
     run bash -c "
@@ -596,7 +596,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [ "$output" = "ERRORE STATUSBAR" ]
 }
 
-@test "_init_i18n: locale sconosciuto → fallback en (I18N_NA=N/A)" {
+@test "_init_i18n: unknown locale → fallback en (I18N_NA=N/A)" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         export LC_MONETARY='xx_XX'
@@ -607,7 +607,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [ "$output" = "N/A" ]
 }
 
-@test "main: it_IT → riga 1 contiene I18N_EFFORT (Effort)" {
+@test "main: it_IT → line 1 contains I18N_EFFORT (Effort)" {
     local input_file="$TEST_DIR/input.json"
     printf '%s' "$_MINIMAL_PAYLOAD" > "$input_file"
     run bash -c "
@@ -620,7 +620,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [[ "$output" == *"Effort:"* ]]
 }
 
-@test "main: de_DE → riga 1 contiene Aufwand:" {
+@test "main: de_DE → line 1 contains Aufwand:" {
     local input_file="$TEST_DIR/input.json"
     printf '%s' "$_MINIMAL_PAYLOAD" > "$input_file"
     run bash -c "
@@ -637,7 +637,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
 # 8b — OAuth token validation (header injection prevention)
 # ---------------------------------------------------------------------------
 
-@test "8b: token con solo caratteri stampabili supera la regex" {
+@test "8b: token containing only printable characters passes validation" {
     run bash -c "
         token='eyJhbGciOiJSUzI1NiJ9.validtoken'
         [[ \"\$token\" =~ [^[:print:]] ]] && echo REJECTED || echo ALLOWED
@@ -646,7 +646,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [ "$output" = "ALLOWED" ]
 }
 
-@test "8b: token con newline (\n) viene rifiutato dalla regex" {
+@test "8b: token containing newline (\n) is rejected by the regex" {
     run bash -c '
         token="$(printf "abc\ndef")"
         [[ "$token" =~ [^[:print:]] ]] && echo REJECTED || echo ALLOWED
@@ -655,7 +655,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [ "$output" = "REJECTED" ]
 }
 
-@test "8b: token con carriage return (\r) viene rifiutato dalla regex" {
+@test "8b: token containing carriage return (\r) is rejected by the regex" {
     run bash -c '
         token="$(printf "abc\rdef")"
         [[ "$token" =~ [^[:print:]] ]] && echo REJECTED || echo ALLOWED
@@ -664,7 +664,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [ "$output" = "REJECTED" ]
 }
 
-@test "8b: token con carattere di controllo (\x01) viene rifiutato dalla regex" {
+@test "8b: token containing control character (\x01) is rejected by the regex" {
     run bash -c '
         token="$(printf "abc\x01def")"
         [[ "$token" =~ [^[:print:]] ]] && echo REJECTED || echo ALLOWED
@@ -673,8 +673,8 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [ "$output" = "REJECTED" ]
 }
 
-@test "8b: fetch_usage ritorna 1 se il token contiene newline" {
-    # Crea un file credenziali con token che contiene \n (JSON escape → newline reale)
+@test "8b: fetch_usage returns 1 when token contains a newline" {
+    # Create a credentials file with a token containing \n (JSON escape → real newline)
     local cred_dir="$TEST_DIR/.claude"
     mkdir -p "$cred_dir"
     printf '{"claudeAiOauth":{"accessToken":"abc\\ndef"}}' > "$cred_dir/.credentials.json"
@@ -688,10 +688,10 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [ "$status" -ne 0 ]
 }
 
-@test "8b: fetch_usage ritorna 1 se il token contiene carriage return" {
+@test "8b: fetch_usage returns 1 when token contains a carriage return" {
     local cred_dir="$TEST_DIR/.claude"
     mkdir -p "$cred_dir"
-    # \r nel JSON string → carriage return reale nell'output di jq
+    # \r in JSON string → real carriage return in jq output
     printf '{"claudeAiOauth":{"accessToken":"abc\\rdef"}}' > "$cred_dir/.credentials.json"
     run bash -c "
         export HOME=\"$TEST_DIR\"
@@ -707,7 +707,7 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
 # 8c — Credentials file size cap (CRED_MAX_BYTES)
 # ---------------------------------------------------------------------------
 
-@test "8c: CRED_MAX_BYTES è definita e uguale a 65536" {
+@test "8c: CRED_MAX_BYTES is defined and equals 65536" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -718,10 +718,10 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
     [ "$output" = "65536" ]
 }
 
-@test "8c: file credenziali entro 64 KB viene letto normalmente" {
+@test "8c: credentials file within 64 KB is read normally" {
     local cred_dir="$TEST_DIR/.claude"
     mkdir -p "$cred_dir"
-    # File valido e piccolo — fetch_usage deve tentare la chiamata API (non bloccarsi sul size check)
+    # Small valid file — fetch_usage must attempt the API call (not be blocked by the size check)
     printf '{"claudeAiOauth":{"accessToken":"validtoken123"}}' > "$cred_dir/.credentials.json"
     run bash -c "
         export HOME=\"$TEST_DIR\"
@@ -730,16 +730,16 @@ _MINIMAL_PAYLOAD='{"model":{"display_name":"Sonnet 4.6"},"context_window":{"cont
         source \"$TEST_DIR/funcs.sh\"
         fetch_usage
     "
-    # Ritorna 1 perché curl fallisce (no rete), ma NON per il size check
-    # Verifichiamo che non esista un error cache con tipo 'size_exceeded'
-    # (il size check non scrive nulla, ritorna 1 silenziosamente)
+    # Returns 1 because curl fails (no network), but NOT due to the size check.
+    # Verify that no error cache with type 'size_exceeded' exists
+    # (the size check writes nothing and returns 1 silently)
     [ "$status" -ne 0 ]
 }
 
-@test "8c: file credenziali oltre 64 KB viene rifiutato (fetch_usage ritorna 1)" {
+@test "8c: credentials file over 64 KB is rejected (fetch_usage returns 1)" {
     local cred_dir="$TEST_DIR/.claude"
     mkdir -p "$cred_dir"
-    # Genera un file di circa 66 KB (> CRED_MAX_BYTES=65536)
+    # Generate a file of approximately 66 KB (> CRED_MAX_BYTES=65536)
     python3 -c "
 import json, sys
 data = {'claudeAiOauth': {'accessToken': 'x' * 66000}}
@@ -753,17 +753,17 @@ sys.stdout.write(json.dumps(data))
         fetch_usage
     "
     [ "$status" -ne 0 ]
-    # Verifica che non sia stato creato un usage_cache (jq non è stato invocato)
+    # Verify that no usage_cache was created (jq was not invoked)
     [ ! -f "$TEST_DIR/claude_usage_cache.json" ]
 }
 
-@test "8c: file credenziali esattamente 65536 byte viene accettato" {
+@test "8c: credentials file of exactly 65536 bytes is accepted" {
     local cred_dir="$TEST_DIR/.claude"
     mkdir -p "$cred_dir"
-    # Creiamo un file di esattamente CRED_MAX_BYTES byte (limite incluso)
+    # Create a file of exactly CRED_MAX_BYTES bytes (inclusive limit)
     python3 -c "
 import sys
-# Prefisso JSON + padding per arrivare a 65536 byte esatti
+# JSON prefix + padding to reach exactly 65536 bytes
 prefix = b'{\"claudeAiOauth\":{\"accessToken\":\"'
 suffix = b'\"}}'
 pad_len = 65536 - len(prefix) - len(suffix)
@@ -771,7 +771,7 @@ sys.stdout.buffer.write(prefix + b'a' * pad_len + suffix)
 " > "$cred_dir/.credentials.json"
     local fsize
     fsize=$(stat -c %s "$cred_dir/.credentials.json" 2>/dev/null || stat -f %z "$cred_dir/.credentials.json" 2>/dev/null)
-    # Il file deve essere esattamente 65536 byte
+    # File must be exactly 65536 bytes
     [ "$fsize" -eq 65536 ]
     run bash -c "
         export HOME=\"$TEST_DIR\"
@@ -780,11 +780,11 @@ sys.stdout.buffer.write(prefix + b'a' * pad_len + suffix)
         source \"$TEST_DIR/funcs.sh\"
         fetch_usage
     "
-    # Ritorna 1 perché curl fallisce, ma il size check non lo blocca
+    # Returns 1 because curl fails, but the size check does not block
     [ "$status" -ne 0 ]
-    # Non deve esistere un usage_cache con size_exceeded
-    # (se il file fosse stato bloccato dal size check, non ci sarebbe nemmeno l'error_cache)
-    # Verifichiamo che l'error cache esista (significa che ha superato il size check e ha tentato curl)
+    # No usage_cache with size_exceeded must exist.
+    # (if the file had been blocked by the size check, the error_cache would not exist)
+    # Verify the error cache exists (it passed the size check and attempted curl)
     [ -f "$TEST_DIR/claude_usage_error.json" ]
 }
 
@@ -792,7 +792,7 @@ sys.stdout.buffer.write(prefix + b'a' * pad_len + suffix)
 # 8d — API response size cap (API_RESPONSE_MAX_BYTES / --max-filesize)
 # ---------------------------------------------------------------------------
 
-@test "8d: API_RESPONSE_MAX_BYTES è definita e uguale a 1048576" {
+@test "8d: API_RESPONSE_MAX_BYTES is defined and equals 1048576" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -803,14 +803,14 @@ sys.stdout.buffer.write(prefix + b'a' * pad_len + suffix)
     [ "$output" = "1048576" ]
 }
 
-@test "8d: la chiamata curl include --max-filesize" {
-    # Verifica statica: la costante e il flag sono presenti nel sorgente
+@test "8d: curl invocation includes --max-filesize" {
+    # Static check: the constant and flag are present in the source
     grep -q 'API_RESPONSE_MAX_BYTES=1048576' "$BATS_TEST_DIRNAME/../statusline.sh"
     grep -q -- '--max-filesize' "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
-@test "8d: --max-filesize usa la variabile API_RESPONSE_MAX_BYTES (non un valore hardcoded)" {
-    # Verifica che nel sorgente --max-filesize sia seguito dalla variabile, non da un numero fisso
+@test "8d: --max-filesize uses the API_RESPONSE_MAX_BYTES variable (not a hardcoded value)" {
+    # Verify that --max-filesize is followed by the variable, not a fixed number
     grep -q -- '--max-filesize "\$API_RESPONSE_MAX_BYTES"' "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
@@ -818,7 +818,7 @@ sys.stdout.buffer.write(prefix + b'a' * pad_len + suffix)
 # 8e — Settings file size cap (SETTINGS_MAX_BYTES)
 # ---------------------------------------------------------------------------
 
-@test "8e: SETTINGS_MAX_BYTES è definita e uguale a 262144" {
+@test "8e: SETTINGS_MAX_BYTES is defined and equals 262144" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -829,7 +829,7 @@ sys.stdout.buffer.write(prefix + b'a' * pad_len + suffix)
     [ "$output" = "262144" ]
 }
 
-@test "8e: file settings entro 256 KB viene letto e restituisce effortLevel" {
+@test "8e: settings file within 256 KB is read and returns effortLevel" {
     local ws="$TEST_DIR/workspace"
     mkdir -p "$ws/.claude"
     printf '{"effortLevel":"high"}' > "$ws/.claude/settings.json"
@@ -843,10 +843,10 @@ sys.stdout.buffer.write(prefix + b'a' * pad_len + suffix)
     [ "$output" = "high" ]
 }
 
-@test "8e: file settings oltre 256 KB viene saltato (fallback a normal)" {
+@test "8e: settings file over 256 KB is skipped (fallback to normal)" {
     local ws="$TEST_DIR/workspace"
     mkdir -p "$ws/.claude"
-    # Genera un file settings di circa 263 KB (> SETTINGS_MAX_BYTES=262144)
+    # Generate a settings file of approximately 263 KB (> SETTINGS_MAX_BYTES=262144)
     python3 -c "
 import json, sys
 data = {'effortLevel': 'high', '_pad': 'x' * 263000}
@@ -859,21 +859,21 @@ sys.stdout.write(json.dumps(data))
         read_effort_cascade \"$ws\"
     "
     [ "$status" -eq 0 ]
-    # Il file troppo grande viene saltato → fallback a "normal"
+    # Oversized file is skipped → fallback to "normal"
     [ "$output" = "normal" ]
 }
 
-@test "8e: file settings oltre 256 KB viene saltato ma il successivo valido viene letto" {
+@test "8e: settings file over 256 KB is skipped but the next valid file is read" {
     local ws="$TEST_DIR/workspace"
     mkdir -p "$ws/.claude"
     mkdir -p "$TEST_DIR/.claude"
-    # settings.local.json troppo grande — deve essere saltato
+    # settings.local.json too large — must be skipped
     python3 -c "
 import json, sys
 data = {'effortLevel': 'high', '_pad': 'x' * 263000}
 sys.stdout.write(json.dumps(data))
 " > "$ws/.claude/settings.local.json"
-    # settings.json valido — deve essere letto
+    # settings.json valid — must be read
     printf '{"effortLevel":"medium"}' > "$ws/.claude/settings.json"
     run bash -c "
         export HOME=\"$TEST_DIR\"
@@ -890,8 +890,8 @@ sys.stdout.write(json.dumps(data))
 # 8f — Single jq call on git cache
 # ---------------------------------------------------------------------------
 
-@test "8f: read_git_status restituisce branch/staged/modified da cache valida (1 sola jq)" {
-    # Prepopola la git cache con dati noti
+@test "8f: read_git_status returns branch/staged/modified from a valid cache (single jq call)" {
+    # Pre-populate the git cache with known data
     local ws="$TEST_DIR/workspace"
     mkdir -p "$ws/.git"
     printf 'ref: refs/heads/main\n' > "$ws/.git/HEAD"
@@ -904,7 +904,7 @@ sys.stdout.write(json.dumps(data))
         --arg head_ref "ref: refs/heads/main" \
         '{"branch":$branch,"staged":$staged,"modified":$modified,"path":$path,"head_ref":$head_ref}')
     printf '%s' "$cache_content" > "$TEST_DIR/claude_git_cache.json"
-    # Rende la cache valida: mtime = adesso
+    # Make the cache valid: mtime = now
     touch "$TEST_DIR/claude_git_cache.json"
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
@@ -920,12 +920,12 @@ sys.stdout.write(json.dumps(data))
     [ "$modified" = "3" ]
 }
 
-@test "8f: read_git_status ignora la cache se il path è cambiato" {
+@test "8f: read_git_status ignores cache when the path has changed" {
     local ws="$TEST_DIR/workspace"
     local other="$TEST_DIR/other"
     mkdir -p "$ws/.git" "$other"
     printf 'ref: refs/heads/main\n' > "$ws/.git/HEAD"
-    # Cache con path diverso
+    # Cache with a different path
     local cache_content
     cache_content=$(jq -n \
         --arg branch   "old-branch" \
@@ -943,38 +943,38 @@ sys.stdout.write(json.dumps(data))
         read_git_status \"$ws\"
     " 2>/dev/null
     [ "$status" -eq 0 ]
-    # Branch letto da git (non da cache) — in TEST_DIR non c'è un repo git reale,
-    # quindi branch sarà vuoto, ma NON "old-branch"
+    # Branch read from git (not from cache) — TEST_DIR contains no real git repo,
+    # so branch will be empty, but NOT "old-branch"
     [[ "$output" != *"old-branch"* ]]
 }
 
-@test "8f: nel sorgente non esistono più chiamate jq separate su .path e .head_ref" {
-    # Verifica strutturale: le 3 chiamate jq separate sono state fuse
-    # Non deve esistere 'jq -r .path // empty' e 'jq -r .head_ref // empty' come righe separate
+@test "8f: source no longer contains separate jq calls for .path and .head_ref" {
+    # Structural check: the 3 separate jq calls have been merged.
+    # 'jq -r .path // empty' and 'jq -r .head_ref // empty' must not exist as separate lines
     ! grep -qP "jq -r '.path // empty'" "$BATS_TEST_DIRNAME/../statusline.sh"
     ! grep -qP "jq -r '.head_ref // empty'" "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
 # ---------------------------------------------------------------------------
-# 8g — fmt_date usa una sola chiamata date per la formattazione
+# 8g — fmt_date uses a single date call for formatting
 # ---------------------------------------------------------------------------
 
-@test "8g: fmt_date formatta correttamente una data ISO8601 (24h)" {
+@test "8g: fmt_date correctly formats an ISO8601 date (24h)" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
         source \"$TEST_DIR/funcs.sh\"
-        # Epoch noto: 2024-06-15T14:30:00Z = Sabato
+        # Known epoch: 2024-06-15T14:30:00Z = Saturday
         fmt_date '2024-06-15T14:30:00Z'
     " 2>/dev/null
     [ "$status" -eq 0 ]
-    # Deve contenere ora e minuti 14:30
+    # Must contain time 14:30
     [[ "$output" == *"14:30"* ]]
-    # Deve contenere il giorno e il mese (15 e 06)
+    # Must contain day and month (15 and 06)
     [[ "$output" == *"15"* ]]
 }
 
-@test "8g: fmt_date restituisce I18N_NA per input vuoto" {
+@test "8g: fmt_date returns I18N_NA for empty input" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -985,7 +985,7 @@ sys.stdout.write(json.dumps(data))
     [ "$output" = "N/A" ]
 }
 
-@test "8g: fmt_date restituisce I18N_NA per input non valido" {
+@test "8g: fmt_date returns I18N_NA for invalid input" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -996,22 +996,22 @@ sys.stdout.write(json.dumps(data))
     [ "$output" = "N/A" ]
 }
 
-@test "8g: nel sorgente fmt_date non contiene più chiamate date separate per dow/dd/mm" {
-    # Verifica strutturale: le chiamate separate a date per dow, dd, mm non esistono più
+@test "8g: source fmt_date no longer contains separate date calls for dow/dd/mm" {
+    # Structural check: separate date calls for dow, dd, mm no longer exist
     ! grep -qE 'dow=\$\(date' "$BATS_TEST_DIRNAME/../statusline.sh"
     ! grep -qE 'dd=\$\(date'  "$BATS_TEST_DIRNAME/../statusline.sh"
     ! grep -qE 'mm=\$\(date'  "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
-@test "8g: fmt_date usa read -r per parsare i campi dall'output combinato di date" {
+@test "8g: fmt_date uses read -r to parse fields from the combined date output" {
     grep -q 'read -r dow dd mm time_str' "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
 # ---------------------------------------------------------------------------
-# 8h — Singolo awk per i 4 fmt_tokens
+# 8h — Single awk call for all 4 fmt_tokens
 # ---------------------------------------------------------------------------
 
-@test "8h: awk singolo formatta valori < 1000 come interi" {
+@test "8h: single awk formats values < 1000 as integers" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -1028,7 +1028,7 @@ sys.stdout.write(json.dumps(data))
     [ "$output" = "500 0 100 600" ]
 }
 
-@test "8h: awk singolo formatta valori >= 1000 come XK" {
+@test "8h: single awk formats values >= 1000 as XK" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -1045,7 +1045,7 @@ sys.stdout.write(json.dumps(data))
     [ "$output" = "5.0K 1.0K 1.5K 7.5K" ]
 }
 
-@test "8h: main produce CONTEXT_WINDOW con token formattati (integrazione)" {
+@test "8h: main produces CONTEXT_WINDOW with formatted tokens (integration)" {
     local input_file="$TEST_DIR/input.json"
     printf '%s' "$_MINIMAL_PAYLOAD" > "$input_file"
     run bash -c "
@@ -1056,13 +1056,13 @@ sys.stdout.write(json.dumps(data))
     " 2>/dev/null
     [ "$status" -eq 0 ]
     [[ "$output" == *"CONTEXT_WINDOW"* ]]
-    # Il payload ha tok_in=5000, tok_out=1000 → 5.0K e 1.0K
+    # Payload has tok_in=5000, tok_out=1000 → 5.0K and 1.0K
     [[ "$output" == *"5.0K"* ]]
     [[ "$output" == *"1.0K"* ]]
 }
 
-@test "8h: nel sorgente non esistono più 4 chiamate separate a fmt_tokens" {
-    # Verifica strutturale: le 4 righe tok_*_fmt=$(fmt_tokens …) non devono più esistere
+@test "8h: source no longer contains 4 separate fmt_tokens calls" {
+    # Structural check: the 4 tok_*_fmt=$(fmt_tokens …) lines must no longer exist
     ! grep -qE 'tok_in_fmt=\$\(fmt_tokens'     "$BATS_TEST_DIRNAME/../statusline.sh"
     ! grep -qE 'tok_out_fmt=\$\(fmt_tokens'    "$BATS_TEST_DIRNAME/../statusline.sh"
     ! grep -qE 'tok_cached_fmt=\$\(fmt_tokens' "$BATS_TEST_DIRNAME/../statusline.sh"
@@ -1070,10 +1070,10 @@ sys.stdout.write(json.dumps(data))
 }
 
 # ---------------------------------------------------------------------------
-# 8i — _SEP90 precalcolato come costante globale
+# 8i — _SEP90 pre-calculated as a global constant
 # ---------------------------------------------------------------------------
 
-@test "8i: _SEP90 è definita a livello globale dopo il sourcing" {
+@test "8i: _SEP90 is defined globally after sourcing" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -1084,12 +1084,12 @@ sys.stdout.write(json.dumps(data))
     [ "$output" = "OK" ]
 }
 
-@test "8i: _SEP90 contiene esattamente 90 caratteri ─ (U+2500)" {
+@test "8i: _SEP90 contains exactly 90 ─ characters (U+2500)" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
         source \"$TEST_DIR/funcs.sh\"
-        # Rimuove le sequenze ANSI e conta i caratteri ─
+        # Strip ANSI sequences and count ─ characters
         stripped=\$(printf '%s' \"\$_SEP90\" | sed 's/\x1b\[[0-9;]*m//g')
         printf '%s' \"\$stripped\" | wc -m | tr -d ' '
     "
@@ -1097,17 +1097,17 @@ sys.stdout.write(json.dumps(data))
     [ "$output" = "90" ]
 }
 
-@test "8i: nel sorgente non esiste più la costruzione locale sep90=\$(printf)" {
+@test "8i: source no longer contains the local sep90=\$(printf) construction" {
     ! grep -qE 'local sep90' "$BATS_TEST_DIRNAME/../statusline.sh"
     ! grep -qE 'sep90="\$\{cGray\}' "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
-@test "8i: nel sorgente main() usa \$_SEP90 (non \$sep90)" {
+@test "8i: source main() uses \$_SEP90 (not \$sep90)" {
     grep -q '_SEP90' "$BATS_TEST_DIRNAME/../statusline.sh"
     ! grep -q '"$sep90"' "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
-@test "8i: main produce output con i separatori (integrazione)" {
+@test "8i: main produces output with separators (integration)" {
     local input_file="$TEST_DIR/input.json"
     printf '%s' "$_MINIMAL_PAYLOAD" > "$input_file"
     run bash -c "
@@ -1117,18 +1117,18 @@ sys.stdout.write(json.dumps(data))
         main < \"$input_file\"
     " 2>/dev/null
     [ "$status" -eq 0 ]
-    # L'output deve contenere il carattere ─
+    # Output must contain the ─ character
     [[ "$output" == *"─"* ]]
 }
 
 # ---------------------------------------------------------------------------
-# 8j — Output assemblato in singolo printf
+# 8j — Output assembled into a single printf
 # ---------------------------------------------------------------------------
 
-@test "8j: main produce esattamente 13 righe di output" {
-    # Layout atteso: line1 + sep + line2 + sep + line3 + sep + line4 + sep + line5 + sep + line6 + sep = 12 righe
-    # Il printf '%s\n' "$out" aggiunge un \n finale → wc -l conta 13 (12 contenuto + 1 newline finale)
-    # In pratica contiamo le righe non vuote (strippando ANSI)
+@test "8j: main produces exactly 13 output lines" {
+    # Expected layout: line1 + sep + line2 + sep + line3 + sep + line4 + sep + line5 + sep + line6 + sep = 12 lines
+    # printf '%s\n' "$out" adds a trailing \n → wc -l counts 13 (12 content + 1 trailing newline)
+    # In practice we count non-empty lines (stripping ANSI codes)
     local input_file="$TEST_DIR/input.json"
     printf '%s' "$_MINIMAL_PAYLOAD" > "$input_file"
     run bash -c "
@@ -1138,13 +1138,13 @@ sys.stdout.write(json.dumps(data))
         main < \"$input_file\"
     " 2>/dev/null
     [ "$status" -eq 0 ]
-    # Conta righe non vuote (stripping ANSI codes)
+    # Count non-empty lines (stripping ANSI codes)
     local line_count
     line_count=$(printf '%s\n' "$output" | sed 's/\x1b\[[0-9;]*m//g' | grep -c '.')
     [ "$line_count" -eq 12 ]
 }
 
-@test "8j: output contiene tutte e 6 le etichette chiave" {
+@test "8j: output contains all 6 key labels" {
     local input_file="$TEST_DIR/input.json"
     printf '%s' "$_MINIMAL_PAYLOAD" > "$input_file"
     run bash -c "
@@ -1162,23 +1162,23 @@ sys.stdout.write(json.dumps(data))
     [[ "$output" == *"XTRA USG:"* ]]
 }
 
-@test "8j: nel sorgente non esistono più printf separati per ogni riga di output" {
-    # Il blocco di output ora usa variabili line1..line6 + un singolo printf '%s\n'
-    # Non devono esserci più printf separati per ENV:, CONTEXT_WINDOW, ecc.
+@test "8j: source no longer contains separate printf calls for each output line" {
+    # The output block now uses line1..line6 variables + a single printf '%s\n'
+    # No more separate printf calls for ENV:, CONTEXT_WINDOW, etc.
     ! grep -qE "printf '%s' \"\$\{cWhite\}ENV:" "$BATS_TEST_DIRNAME/../statusline.sh"
     ! grep -qE "printf '%s\\\\n' \"\$\{cWhite\}CONTEXT_WINDOW" "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
-@test "8j: nel sorgente è presente la variabile out assemblata" {
+@test "8j: source contains the assembled out variable" {
     grep -q 'out="${line1}"' "$BATS_TEST_DIRNAME/../statusline.sh"
     grep -qE "printf '%s\\\\n' \"\\\$out\"" "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
 # ---------------------------------------------------------------------------
-# 8k — balance_fmt calcolato via fmt_currency (no awk duplicato)
+# 8k — balance_fmt calculated via fmt_currency (no duplicate awk)
 # ---------------------------------------------------------------------------
 
-@test "8k: fmt_currency calcola correttamente il balance (locale it_IT)" {
+@test "8k: fmt_currency correctly calculates the balance (it_IT locale)" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         export LC_MONETARY='it_IT'
@@ -1193,7 +1193,7 @@ sys.stdout.write(json.dumps(data))
     [[ "$output" == *"€"* ]]
 }
 
-@test "8k: fmt_currency e il vecchio awk producono lo stesso risultato" {
+@test "8k: fmt_currency and the old awk produce the same result" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         export LC_MONETARY='it_IT'
@@ -1207,7 +1207,7 @@ sys.stdout.write(json.dumps(data))
     [ "$output" = "82,11 €" ]
 }
 
-@test "8k: balance_fmt è N/A se used_credits è null" {
+@test "8k: balance_fmt is N/A when used_credits is null" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -1226,18 +1226,18 @@ sys.stdout.write(json.dumps(data))
     [ "$output" = "N/A" ]
 }
 
-@test "8k: nel sorgente non esiste più il blocco awk duplicato per il balance" {
-    # Il blocco awk inline per il balance è stato rimosso
+@test "8k: source no longer contains the duplicate awk block for balance" {
+    # The inline awk block for balance has been removed
     ! grep -qE "awk -v used=.*-v month=.*month_limit" "$BATS_TEST_DIRNAME/../statusline.sh"
-    # Deve invece usare fmt_currency
+    # Must use fmt_currency instead
     grep -q 'balance_fmt=$(fmt_currency "$bal_cents")' "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
 # ---------------------------------------------------------------------------
-# 8l — Gradient stops estratti in costanti globali condivise
+# 8l — Gradient stops extracted as shared global constants
 # ---------------------------------------------------------------------------
 
-@test "8l: le 12 costanti _GRAD_* sono definite con i valori corretti" {
+@test "8l: the 12 _GRAD_* constants are defined with the correct values" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -1256,7 +1256,7 @@ sys.stdout.write(json.dumps(data))
     [ "${lines[3]}" = "239 68 68" ]
 }
 
-@test "8l: get_gradient_bar produce output con sequenze ANSI RGB (usa le costanti)" {
+@test "8l: get_gradient_bar produces output with ANSI RGB sequences (uses constants)" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -1264,11 +1264,11 @@ sys.stdout.write(json.dumps(data))
         get_gradient_bar 50 10
     "
     [ "$status" -eq 0 ]
-    # Output deve contenere sequenze ANSI RGB [38;2;
+    # Output must contain ANSI RGB sequences [38;2;
     [[ "$output" == *"[38;2;"* ]]
 }
 
-@test "8l: get_pct_color produce output con sequenze ANSI RGB (usa le costanti)" {
+@test "8l: get_pct_color produces output with ANSI RGB sequences (uses constants)" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -1276,11 +1276,11 @@ sys.stdout.write(json.dumps(data))
         get_pct_color 0
     "
     [ "$status" -eq 0 ]
-    # A 0% deve usare il colore verde (r0=74, g0=222, b0=128)
+    # At 0% must use green color (r0=74, g0=222, b0=128)
     [[ "$output" == *"38;2;74;222;128"* ]]
 }
 
-@test "8l: get_pct_color a 100% usa il colore rosso (r3=239, g3=68, b3=68)" {
+@test "8l: get_pct_color at 100% uses red color (r3=239, g3=68, b3=68)" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -1291,13 +1291,13 @@ sys.stdout.write(json.dumps(data))
     [[ "$output" == *"38;2;239;68;68"* ]]
 }
 
-@test "8l: nel sorgente non esistono più righe hardcoded r0=74 o r3=239 nei blocchi awk" {
+@test "8l: source no longer contains hardcoded r0=74 or r3=239 lines inside awk blocks" {
     ! grep -qE '^\s+r0=74' "$BATS_TEST_DIRNAME/../statusline.sh"
     ! grep -qE '^\s+r3=239' "$BATS_TEST_DIRNAME/../statusline.sh"
 }
 
-@test "8l: entrambe le funzioni awk ricevono le costanti via -v" {
-    # get_gradient_bar e get_pct_color devono passare -v r0="$_GRAD_R0"
+@test "8l: both awk functions receive the constants via -v" {
+    # get_gradient_bar and get_pct_color must pass -v r0="$_GRAD_R0"
     grep -c '\-v r0="\$_GRAD_R0"' "$BATS_TEST_DIRNAME/../statusline.sh" | grep -q '^2$'
 }
 
@@ -1305,7 +1305,7 @@ sys.stdout.write(json.dumps(data))
 # 8a — Stdin size cap (STDIN_MAX_BYTES)
 # ---------------------------------------------------------------------------
 
-@test "8a: STDIN_MAX_BYTES è definita e uguale a 1048576" {
+@test "8a: STDIN_MAX_BYTES is defined and equals 1048576" {
     run bash -c "
         export TMPDIR=\"$TEST_DIR\"
         unset LC_ALL LANG LC_MONETARY
@@ -1316,7 +1316,7 @@ sys.stdout.write(json.dumps(data))
     [ "$output" = "1048576" ]
 }
 
-@test "8a: input entro 1 MB non genera ERRORE STATUSBAR" {
+@test "8a: input within 1 MB does not produce ERRORE STATUSBAR" {
     local input_file="$TEST_DIR/input.json"
     printf '%s' "$_MINIMAL_PAYLOAD" > "$input_file"
     run bash -c "
@@ -1329,7 +1329,7 @@ sys.stdout.write(json.dumps(data))
     [[ "$output" != *"ERRORE STATUSBAR"* ]]
 }
 
-@test "8a: input oltre 1 MB viene troncato e non genera ERRORE STATUSBAR" {
+@test "8a: input over 1 MB is truncated and does not produce ERRORE STATUSBAR" {
     # Build a JSON with a very large padding field that exceeds 1 MB.
     # The payload is valid JSON but the padding pushes it well past STDIN_MAX_BYTES.
     # After head -c truncation the JSON will be malformed; main must fall back to '{}'.

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-test_statusline.py — pytest test suite per statusline.py
+test_statusline.py — pytest test suite for statusline.py
 
-Esecuzione:
+Usage:
     pytest test_statusline.py -v
     pytest test_statusline.py -v --tb=short
 
-Dipendenze: pytest >= 7, Python 3.8+
+Requirements: pytest >= 7, Python 3.8+
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Aggiunge la directory corrente al path per trovare statusline.py
+# Add the project root to sys.path so that statusline.py can be imported.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import statusline  # noqa: E402
 
@@ -30,7 +30,7 @@ import statusline  # noqa: E402
 
 @pytest.fixture
 def tmp_cache(tmp_path, monkeypatch):
-    """Redirige USAGE_CACHE, GIT_CACHE, EFFORT_CACHE su tmp_path."""
+    """Redirect USAGE_CACHE, GIT_CACHE, and EFFORT_CACHE to tmp_path."""
     monkeypatch.setattr('statusline.CACHE_DIR',    tmp_path)
     monkeypatch.setattr('statusline.USAGE_CACHE',  tmp_path / 'claude_usage_cache.json')
     monkeypatch.setattr('statusline.GIT_CACHE',    tmp_path / 'claude_git_cache.json')
@@ -38,7 +38,7 @@ def tmp_cache(tmp_path, monkeypatch):
     yield tmp_path
 
 
-# Payload minimo condiviso dai test di integrazione
+# Minimal JSON payload shared by integration tests.
 _MINIMAL_PAYLOAD = json.dumps({
     "model": {"display_name": "Sonnet 4.6"},
     "context_window": {
@@ -385,7 +385,7 @@ class TestGetDateFmt:
             'ja_JP','zh_CN','zh_TW',
         ]
         for loc in expected:
-            assert loc in statusline._DATE_TABLE, f"Locale {loc} mancante in _DATE_TABLE"
+            assert loc in statusline._DATE_TABLE, f"Locale {loc!r} missing from _DATE_TABLE"
 
 
 # ---------------------------------------------------------------------------
@@ -410,13 +410,13 @@ class TestFmtDate:
         assert statusline.fmt_date('non-una-data') == 'N/D'
 
     @pytest.mark.parametrize("iso_date,expected_day", [
-        ('2025-01-06T12:00:00Z', 'LUN'),   # lunedì
+        ('2025-01-06T12:00:00Z', 'LUN'),   # Monday
         ('2025-01-07T12:00:00Z', 'MAR'),
         ('2025-01-08T12:00:00Z', 'MER'),
         ('2025-01-09T12:00:00Z', 'GIO'),
         ('2025-01-10T12:00:00Z', 'VEN'),
         ('2025-01-11T12:00:00Z', 'SAB'),
-        ('2025-01-12T12:00:00Z', 'DOM'),   # domenica
+        ('2025-01-12T12:00:00Z', 'DOM'),   # Sunday
     ])
     def test_giorni_settimana_it(self, monkeypatch, iso_date, expected_day):
         monkeypatch.setattr('statusline._DATE_FMT', statusline._DATE_TABLE['it_IT'])
@@ -430,7 +430,7 @@ class TestFmtDate:
         result = statusline.fmt_date('2025-06-15T14:30:00Z')
         assert result != 'N/A'
         assert re.match(r'^\w{3} \d{2}/\d{2} H: \d{2}:\d{2}$', result), (
-            f"Formato non valido: {result!r}"
+            f"Unexpected it_IT format: {result!r}"
         )
 
     def test_en_us_mdy_e_12h(self, monkeypatch):
@@ -438,9 +438,9 @@ class TestFmtDate:
         monkeypatch.setattr('statusline._DATE_FMT', statusline._DATE_TABLE['en_US'])
         result = statusline.fmt_date('2025-03-19T18:00:00Z')
         assert result != 'N/A'
-        # MDY: MM/DD e 12h (AM/PM)
+        # MDY: MM/DD with 12-hour clock (AM/PM).
         assert re.match(r'^\w{3} \d{2}/\d{2} H: \d{2}:\d{2} [AP]M$', result), (
-            f"Formato en_US non valido: {result!r}"
+            f"Unexpected en_US format: {result!r}"
         )
 
     def test_de_de_sep_punto(self, monkeypatch):
@@ -448,18 +448,18 @@ class TestFmtDate:
         monkeypatch.setattr('statusline._DATE_FMT', statusline._DATE_TABLE['de_DE'])
         result = statusline.fmt_date('2025-03-19T18:00:00Z')
         assert result != 'N/A'
-        # DMY con sep '.'
+        # DMY with '.' separator.
         assert re.match(r'^\w{2} \d{2}\.\d{2} H: \d{2}:\d{2}$', result), (
-            f"Formato de_DE non valido: {result!r}"
+            f"Unexpected de_DE format: {result!r}"
         )
 
     def test_ja_jp_kanji(self, monkeypatch):
         monkeypatch.setattr('statusline._DATE_FMT', statusline._DATE_TABLE['ja_JP'])
         result = statusline.fmt_date('2025-03-19T18:00:00Z')
         assert result != 'N/A'
-        # Il giorno è un kanji (primo token)
+        # Day abbreviation is a single kanji (first token).
         day_token = result.split()[0]
-        assert len(day_token) == 1, f"Atteso kanji singolo, trovato: {day_token!r}"
+        assert len(day_token) == 1, f"Expected a single kanji, got: {day_token!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -520,7 +520,7 @@ class TestGradientBar:
     def test_zero_percento_tutto_grigio(self):
         bar = statusline.gradient_bar(0, 10)
         assert '60;60;60' in bar
-        # Nessun bucket colorato
+        # No coloured buckets expected.
         assert bar.count('60;60;60') == 10
 
     def test_cento_percento_nessun_grigio(self):
@@ -535,12 +535,12 @@ class TestGradientBar:
         assert bar.count('\u26c1') == 1
 
     def test_dim_bucket_usato_a_zero(self):
-        """gradient_bar(0) deve contenere esattamente N occorrenze di _DIM_BUCKET."""
+        """Verify that gradient_bar(0) contains exactly N occurrences of _DIM_BUCKET."""
         bar = statusline.gradient_bar(0, 10)
         assert bar.count(statusline._DIM_BUCKET) == 10
 
     def test_dim_bucket_assente_a_cento(self):
-        """gradient_bar(100) non deve contenere _DIM_BUCKET (tutti colorati)."""
+        """Verify that gradient_bar(100) contains no _DIM_BUCKET (all buckets coloured)."""
         bar = statusline.gradient_bar(100, 10)
         assert statusline._DIM_BUCKET not in bar
 
@@ -574,7 +574,7 @@ class TestDimBucket:
 class TestReadEffortCascade:
     @pytest.fixture(autouse=True)
     def isolate_home(self, tmp_path, monkeypatch):
-        """Punta _HOME a una dir vuota per non leggere settings reali dell'utente."""
+        """Point _HOME to an empty directory to avoid reading real user settings."""
         fake_home = tmp_path / 'fakehome'
         fake_home.mkdir()
         monkeypatch.setattr('statusline._HOME', fake_home)
@@ -597,7 +597,7 @@ class TestReadEffortCascade:
     def test_cache_valida_restituisce_effort(self, tmp_path, tmp_cache):
         cache_file = tmp_path / 'claude_effort_cache.json'
         cache_file.write_text('{"effort": "medium"}', encoding='utf-8')
-        # File appena creato → cache valida → legge dal cache
+        # Freshly created file → cache is valid → value read from cache.
         result = statusline.read_effort_cascade(tmp_path / 'qualsiasi')
         assert result == 'medium'
 
@@ -606,7 +606,7 @@ class TestReadEffortCascade:
         cache_file.write_text('{"effort": "low"}', encoding='utf-8')
         old = time.time() - 120
         os.utime(cache_file, (old, old))
-        # Cache scaduta, nessun settings file → torna a "normal"
+        # Expired cache, no settings file present → falls back to "normal".
         result = statusline.read_effort_cascade(tmp_path / 'workspace_vuoto')
         assert result == 'normal'
 
@@ -630,7 +630,7 @@ class TestReadGitStatus:
     def test_cache_invalidata_se_path_diverso(self, tmp_path, tmp_cache):
         ws = tmp_path / 'ws'
         ws.mkdir()
-        # Cache con path diverso → non usata
+        # Cache records a different path → must not be used.
         cache_data = json.dumps({
             'branch': 'old-branch', 'staged': 0, 'modified': 0,
             'path': '/altro/path',
@@ -666,8 +666,8 @@ class TestReadGitStatus:
             branch, staged, modified = statusline.read_git_status(ws)
 
         assert branch == 'feature/test'
-        assert staged >= 1   # 'A' e 'M' nel primo char = staged
-        assert modified >= 1  # 'M' nel secondo char = modified
+        assert staged >= 1   # 'A' or 'M' in column 1 → staged
+        assert modified >= 1  # 'M' in column 2 → modified in work tree
 
     def test_non_git_repo_branch_vuoto(self, tmp_path, tmp_cache):
         ws = tmp_path / 'not_repo'
@@ -722,10 +722,10 @@ class TestGitSubprocessTimeout:
 # ---------------------------------------------------------------------------
 
 class TestValidazioneCache:
-    """Verifica che le cache vengano scritte solo con contenuto strutturalmente valido."""
+    """Verify that caches are written only when the response is structurally valid."""
 
     def test_fetch_usage_non_scrive_se_mancano_campi(self, tmp_path, monkeypatch):
-        """Risposta API senza five_hour/seven_day → cache non scritta."""
+        """Verify that an API response missing five_hour/seven_day does not write the cache."""
         monkeypatch.setattr('statusline.USAGE_CACHE', tmp_path / 'claude_usage_cache.json')
         monkeypatch.setattr('statusline.CACHE_DIR', tmp_path)
         cred = tmp_path / 'cred.json'
@@ -745,7 +745,7 @@ class TestValidazioneCache:
         assert not (tmp_path / 'claude_usage_cache.json').exists()
 
     def test_fetch_usage_scrive_se_campi_presenti(self, tmp_path, monkeypatch):
-        """Risposta API con five_hour e seven_day → cache scritta."""
+        """Verify that an API response containing five_hour and seven_day writes the cache."""
         monkeypatch.setattr('statusline.USAGE_CACHE', tmp_path / 'claude_usage_cache.json')
         monkeypatch.setattr('statusline.CACHE_DIR', tmp_path)
         cred = tmp_path / 'cred.json'
@@ -765,7 +765,7 @@ class TestValidazioneCache:
         assert (tmp_path / 'claude_usage_cache.json').exists()
 
     def test_read_effort_cascade_non_scrive_se_effort_vuoto(self, tmp_path, monkeypatch):
-        """effort vuoto (stringa vuota) → cache effort non scritta."""
+        """Verify that an empty effortLevel string does not write the effort cache."""
         cache_file = tmp_path / 'claude_effort_cache.json'
         monkeypatch.setattr('statusline.EFFORT_CACHE', cache_file)
         monkeypatch.setattr('statusline.CACHE_DIR', tmp_path)
@@ -779,15 +779,15 @@ class TestValidazioneCache:
         (ws / '.claude' / 'settings.local.json').write_text(
             '{"effortLevel": ""}', encoding='utf-8'
         )
-        # Dato che effortLevel è stringa vuota → viene ignorato → effort="normal" (non vuoto)
-        # Per testare il caso "effort vuoto" dobbiamo patchare dopo read
-        # Verifichiamo invece il caso normale: effort="normal" → viene scritto
+        # effortLevel="" is ignored → effort falls back to "normal" (non-empty).
+        # Testing a truly empty effort would require patching after the read call;
+        # here we verify the normal case: effort="normal" is written to the cache.
         result = statusline.read_effort_cascade(ws)
         assert result == 'normal'
         assert cache_file.exists()
 
     def test_read_git_status_scrive_cache_con_campi_obbligatori(self, tmp_path, monkeypatch):
-        """Cache git viene scritta e contiene branch e path."""
+        """Verify that the git cache is written and contains the branch and path fields."""
         cache_file = tmp_path / 'claude_git_cache.json'
         monkeypatch.setattr('statusline.GIT_CACHE', cache_file)
         monkeypatch.setattr('statusline.CACHE_DIR', tmp_path)
@@ -814,7 +814,7 @@ class TestValidazioneCache:
 # ---------------------------------------------------------------------------
 
 class TestFetchUsageTokenValidation:
-    """Verifica che token con caratteri di controllo non vengano usati."""
+    """Verify that tokens containing control characters are never used for HTTP requests."""
 
     def _setup(self, monkeypatch, tmp_path, token: str):
         monkeypatch.setattr('statusline.USAGE_CACHE', tmp_path / 'claude_usage_cache.json')
@@ -832,15 +832,15 @@ class TestFetchUsageTokenValidation:
         '\x01invalid',
     ])
     def test_token_invalido_non_chiama_urlopen(self, tmp_path, monkeypatch, bad_token):
-        """Token con caratteri di controllo → urlopen non viene mai chiamato."""
+        """Verify that a token with control characters never triggers a urlopen call."""
         self._setup(monkeypatch, tmp_path, bad_token)
         called = []
         monkeypatch.setattr('statusline.urlopen', lambda *a, **kw: called.append(1))
         statusline.fetch_usage()
-        assert called == [], f"urlopen chiamato con token {bad_token!r}"
+        assert called == [], f"urlopen was called with invalid token {bad_token!r}"
 
     def test_token_valido_chiama_urlopen(self, tmp_path, monkeypatch):
-        """Token valido (ASCII stampabile) → urlopen viene chiamato."""
+        """Verify that a valid (printable ASCII) token triggers a urlopen call."""
         self._setup(monkeypatch, tmp_path, 'valid-token-abc123')
         called = []
 
@@ -871,11 +871,11 @@ class TestCredMaxBytes:
         assert statusline._CRED_MAX_BYTES == 64 * 1024
 
     def test_file_troppo_grande_non_chiama_urlopen(self, tmp_path, monkeypatch):
-        """File credenziali > _CRED_MAX_BYTES → urlopen non viene chiamato."""
+        """Verify that a credentials file exceeding _CRED_MAX_BYTES skips the urlopen call."""
         monkeypatch.setattr('statusline.USAGE_CACHE', tmp_path / 'claude_usage_cache.json')
         monkeypatch.setattr('statusline.CACHE_DIR', tmp_path)
         cred = tmp_path / 'cred.json'
-        # Crea un file più grande del limite
+        # Create a file larger than the size limit.
         oversized = b'x' * (statusline._CRED_MAX_BYTES + 1)
         cred.write_bytes(oversized)
         monkeypatch.setattr('statusline._CRED_CANDIDATES', [cred])
@@ -885,7 +885,7 @@ class TestCredMaxBytes:
         assert called == []
 
     def test_file_entro_limite_chiama_urlopen(self, tmp_path, monkeypatch):
-        """File credenziali <= _CRED_MAX_BYTES con token valido → urlopen chiamato."""
+        """Verify that a credentials file within _CRED_MAX_BYTES triggers the urlopen call."""
         monkeypatch.setattr('statusline.USAGE_CACHE', tmp_path / 'claude_usage_cache.json')
         monkeypatch.setattr('statusline.CACHE_DIR', tmp_path)
         cred = tmp_path / 'cred.json'
@@ -919,7 +919,7 @@ class TestApiResponseMaxBytes:
         assert statusline._API_RESPONSE_MAX_BYTES == 1 * 1024 * 1024
 
     def test_read_chiamato_con_limite(self, tmp_path, monkeypatch):
-        """resp.read() deve ricevere _API_RESPONSE_MAX_BYTES come argomento."""
+        """Verify that resp.read() is called with _API_RESPONSE_MAX_BYTES as its argument."""
         monkeypatch.setattr('statusline.USAGE_CACHE', tmp_path / 'claude_usage_cache.json')
         monkeypatch.setattr('statusline.CACHE_DIR', tmp_path)
         cred = tmp_path / 'cred.json'
@@ -955,7 +955,7 @@ class TestSettingsMaxBytes:
         assert statusline._SETTINGS_MAX_BYTES == 256 * 1024
 
     def test_file_troppo_grande_viene_saltato(self, tmp_path, monkeypatch):
-        """File settings > _SETTINGS_MAX_BYTES → saltato, effort = 'normal'."""
+        """Verify that a settings file exceeding _SETTINGS_MAX_BYTES is skipped, returning 'normal'."""
         monkeypatch.setattr('statusline.EFFORT_CACHE', tmp_path / 'claude_effort_cache.json')
         monkeypatch.setattr('statusline.CACHE_DIR', tmp_path)
         monkeypatch.setattr('statusline._HOME', tmp_path / 'fakehome')
@@ -966,7 +966,7 @@ class TestSettingsMaxBytes:
         settings_dir = ws / '.claude'
         settings_dir.mkdir()
         settings_file = settings_dir / 'settings.local.json'
-        # Scrive un file più grande del limite ma con contenuto valido
+        # Write a file larger than the limit (content is syntactically valid).
         oversized_content = ' ' * (statusline._SETTINGS_MAX_BYTES + 1)
         settings_file.write_text(oversized_content, encoding='utf-8')
 
@@ -974,7 +974,7 @@ class TestSettingsMaxBytes:
         assert result == 'normal'
 
     def test_file_entro_limite_viene_letto(self, tmp_path, monkeypatch):
-        """File settings <= _SETTINGS_MAX_BYTES → letto normalmente."""
+        """Verify that a settings file within _SETTINGS_MAX_BYTES is read normally."""
         monkeypatch.setattr('statusline.EFFORT_CACHE', tmp_path / 'claude_effort_cache.json')
         monkeypatch.setattr('statusline.CACHE_DIR', tmp_path)
         monkeypatch.setattr('statusline._HOME', tmp_path / 'fakehome')
@@ -1006,7 +1006,7 @@ class TestStdinMaxBytes:
         assert statusline._STDIN_MAX_BYTES == 1 * 1024 * 1024
 
     def test_main_stdin_limitato(self, capsys, monkeypatch, tmp_path):
-        """main() deve passare _STDIN_MAX_BYTES a sys.stdin.read()."""
+        """Verify that main() passes _STDIN_MAX_BYTES to sys.stdin.read()."""
         import io
         monkeypatch.setattr('statusline.CACHE_DIR',    tmp_path)
         monkeypatch.setattr('statusline.USAGE_CACHE',  tmp_path / 'claude_usage_cache.json')
@@ -1028,7 +1028,7 @@ class TestStdinMaxBytes:
         assert read_args == [statusline._STDIN_MAX_BYTES]
 
     def test_main_payload_troncato_non_crasha(self, capsys, monkeypatch, tmp_path):
-        """Payload JSON troncato (non valido) → main() non crasha."""
+        """Verify that a truncated (invalid) JSON payload does not crash main()."""
         import io
         monkeypatch.setattr('statusline.CACHE_DIR',    tmp_path)
         monkeypatch.setattr('statusline.USAGE_CACHE',  tmp_path / 'claude_usage_cache.json')
@@ -1049,7 +1049,7 @@ class TestStdinMaxBytes:
 # ---------------------------------------------------------------------------
 
 class TestMain:
-    """Test di integrazione per main() con I/O mockato."""
+    """Integration tests for main() with mocked I/O."""
 
     def _run(self, capsys, monkeypatch, tmp_path, payload: str) -> str:
         import io
@@ -1067,7 +1067,7 @@ class TestMain:
     def test_output_contiene_tutte_le_sezioni(self, capsys, monkeypatch, tmp_path):
         out = self._run(capsys, monkeypatch, tmp_path, _MINIMAL_PAYLOAD)
         for label in ('ENV:', 'CONTEXT_WINDOW', 'CONTEXT:', 'USAGE 5H:', 'USAGE WK:', 'XTRA USG:'):
-            assert label in out, f"Sezione mancante: {label!r}"
+            assert label in out, f"Missing section: {label!r}"
 
     def test_input_vuoto_non_crasha(self, capsys, monkeypatch, tmp_path):
         out = self._run(capsys, monkeypatch, tmp_path, '')
@@ -1081,7 +1081,7 @@ class TestMain:
 
     def test_output_contiene_separatori(self, capsys, monkeypatch, tmp_path):
         out = self._run(capsys, monkeypatch, tmp_path, _MINIMAL_PAYLOAD)
-        # Almeno 4 separatori da 90 ─
+        # At least 4 separators of 90 × '─' are expected.
         assert out.count('─' * 90) >= 4
 
     def test_output_effort_label_de(self, capsys, monkeypatch, tmp_path):
@@ -1111,7 +1111,7 @@ class TestMain:
         return capsys.readouterr().out
 
     def test_balance_calcolato_da_fmt_currency(self, capsys, monkeypatch, tmp_path):
-        """balance_fmt deve essere il risultato di fmt_currency(month_limit - used_credits)."""
+        """Verify that balance_fmt equals fmt_currency(month_limit - used_credits)."""
         usage = {
             'extra_usage': {'monthly_limit': 10000, 'used_credits': 4200,
                             'is_enabled': True, 'utilization': 42},
@@ -1122,7 +1122,7 @@ class TestMain:
         assert expected in out
 
     def test_balance_na_se_used_credits_none(self, capsys, monkeypatch, tmp_path):
-        """Se used_credits è assente, balance deve mostrare N/A."""
+        """Verify that balance shows N/A when used_credits is absent."""
         usage = {
             'extra_usage': {'monthly_limit': 10000, 'is_enabled': True, 'utilization': 0},
             'five_hour': {}, 'seven_day': {},
@@ -1131,7 +1131,7 @@ class TestMain:
         assert f'BALANCE: {statusline._I18N_FMT["na"]}' in out or 'BALANCE:' in out
 
     def test_balance_na_se_month_limit_none(self, capsys, monkeypatch, tmp_path):
-        """Se month_limit è assente, balance deve mostrare N/A."""
+        """Verify that balance shows N/A when monthly_limit is absent."""
         usage = {
             'extra_usage': {'used_credits': 4200, 'is_enabled': True, 'utilization': 0},
             'five_hour': {}, 'seven_day': {},
@@ -1140,7 +1140,7 @@ class TestMain:
         assert f'BALANCE: {statusline._I18N_FMT["na"]}' in out or 'BALANCE:' in out
 
     def test_month_util_separatore_locale_virgola(self, capsys, monkeypatch, tmp_path):
-        """Con separatore decimale ',' (es. it_IT), UTIL deve usare la virgola."""
+        """Verify that UTIL uses a comma as decimal separator for locales such as it_IT."""
         it_currency_fmt = statusline._CURRENCY_TABLE.get('it_IT', statusline._FALLBACK_CURRENCY)
         monkeypatch.setattr('statusline._CURRENCY_FMT', it_currency_fmt)
         usage = {
@@ -1151,7 +1151,7 @@ class TestMain:
         assert '42,5%' in out
 
     def test_month_util_separatore_locale_punto(self, capsys, monkeypatch, tmp_path):
-        """Con separatore decimale '.' (es. en_US), UTIL deve usare il punto."""
+        """Verify that UTIL uses a period as decimal separator for locales such as en_US."""
         us_currency_fmt = statusline._CURRENCY_TABLE.get('en_US', statusline._FALLBACK_CURRENCY)
         monkeypatch.setattr('statusline._CURRENCY_FMT', us_currency_fmt)
         usage = {
@@ -1169,12 +1169,12 @@ class TestMain:
 class TestI18N:
     def test_tabella_ha_tutte_le_lingue(self):
         for lang in ('it', 'en', 'de', 'fr', 'es', 'pt', 'ja', 'zh'):
-            assert lang in statusline._I18N, f"Lingua {lang} mancante in _I18N"
+            assert lang in statusline._I18N, f"Language {lang!r} missing from _I18N"
 
     def test_ogni_entry_ha_tutte_le_chiavi(self):
         for lang, d in statusline._I18N.items():
             for key in ('effort', 'na', 'error'):
-                assert key in d, f"Chiave {key!r} mancante per lingua {lang!r}"
+                assert key in d, f"Key {key!r} missing for language {lang!r}"
 
     def test_it_na_e_nd(self):
         assert statusline._I18N['it']['na'] == 'N/D'

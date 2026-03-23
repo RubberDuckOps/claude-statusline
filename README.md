@@ -2,6 +2,8 @@
 
 > A rich, performance-optimised HUD for [Claude Code](https://claude.ai/code) — live model info, token usage, Anthropic API consumption, and Git status in a single compact 6-line display.
 
+![Claude Code Statusline — live HUD](assets/statusline-hero.png)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Security](https://img.shields.io/badge/security-hardened-green)](SECURITY.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS%20%7C%20WSL-lightgrey)](#choose-your-variant)
@@ -21,6 +23,7 @@
 - [Bash — Linux / macOS / WSL](#bash--linux--macos--wsl)
 - [Python — All Platforms](#python--all-platforms)
 - [Set Effort Level](#set-effort-level)
+- [Localisation](#localisation)
 - [Architecture](#architecture)
 - [Contributing](#contributing)
 - [File Structure](#file-structure)
@@ -46,7 +49,7 @@ The gradient bars transition **green → yellow → orange → red** using per-b
 | 4 | **Git status** | Current branch, staged file count (+N in green), modified file count (~N in yellow) |
 | 5 | **Gradient bars** | Three O(n) RGB bars: context window, 5-hour usage, weekly usage |
 | 6 | **API usage** | Extra-usage enabled flag, credits consumed, monthly limit, utilisation %, and balance |
-| 7 | **Localisation** | Currency symbol and format, date order and separators, 12h/24h clock, and weekday names adapt to the system locale |
+| 7 | **[Localisation](#localisation)** | 16 locales — currency symbol and format, date order and separators, 12h/24h clock, weekday names in native language, and UI labels in 8 languages, all detected automatically from the system locale |
 | 8 | **Caching** | Every I/O-heavy operation is cached (TTL: 120 s API · 8 s git · 30 s effort) — the UI never blocks |
 | 9 | **Atomic writes** | Cache files written via temp → rename; never a partial read |
 | 10 | **Security** | stdin/file size caps, OAuth token control-character validation, no string interpolation into JSON — see [SECURITY.md](SECURITY.md) |
@@ -511,6 +514,74 @@ The Anthropic OAuth credentials file (`~/.claude/.credentials.json`) is missing 
 ```bash
 claude login
 ```
+
+---
+
+## Localisation
+
+The statusline automatically adapts to the system locale — **no configuration required**. Currency amounts, date formats, clock style, and UI labels all change to match the user's regional settings.
+
+### Supported Locales
+
+16 locales are built in. Unrecognised locales fall back to `en_US` for formats and `en` for UI labels.
+
+| Locale | Language | Currency example | Date example | Clock |
+|--------|----------|-----------------|--------------|-------|
+| `it_IT` | Italian | `4,20 €` | `LUN 15/06 H: 14:30` | 24h |
+| `en_US` | English (US) | `$4.20` | `SUN 06/15 H: 02:30 PM` | 12h |
+| `en_GB` | English (UK) | `£4.20` | `SUN 15/06 H: 14:30` | 24h |
+| `en_AU` | English (AU) | `$4.20` | `SUN 06/15 H: 02:30 PM` | 12h |
+| `en_CA` | English (CA) | `$4.20` | `SUN 06/15 H: 02:30 PM` | 12h |
+| `de_DE` | German | `4,20 €` | `SO 15.06 H: 14:30` | 24h |
+| `fr_FR` | French | `4,20 €` | `DIM 15/06 H: 14:30` | 24h |
+| `es_ES` | Spanish | `4,20 €` | `DOM 15/06 H: 14:30` | 24h |
+| `pt_PT` | Portuguese | `4,20 €` | `DOM 15/06 H: 14:30` | 24h |
+| `pt_BR` | Brazilian Portuguese | `R$4,20` | `DOM 15/06 H: 14:30` | 24h |
+| `ja_JP` | Japanese | `¥4` | `土 06/15 H: 14:30` | 24h |
+| `zh_CN` | Chinese (Simplified) | `¥4.20` | `六 15/06 H: 14:30` | 24h |
+| `zh_TW` | Chinese (Traditional) | `¥4.20` | `六 15/06 H: 14:30` | 24h |
+| `fr_CH` | Swiss French | `CHF 4.20` | `DIM 15/06 H: 14:30` | 24h |
+| `de_CH` | Swiss German | `CHF 4.20` | `SO 15.06 H: 14:30` | 24h |
+| `it_CH` | Swiss Italian | `CHF 4.20` | `LUN 15/06 H: 14:30` | 24h |
+
+### What Adapts
+
+**Currency (lines 4–6)**
+
+- Symbol: `€` · `$` · `£` · `¥` · `CHF` · `R$`
+- Decimal separator: `,` (Euro-zone, Brazil) vs `.` (English, Japanese, Chinese, Swiss)
+- Symbol position: after amount with a space (`4,20 €`) vs. before amount (`$4.20`, `CHF 4.20`)
+- Decimal places: 0 for `ja_JP` (the yen has no fractional unit), 2 for all other locales
+
+**Dates and clock (lines 4–5 reset timestamps)**
+
+- Date order: DMY (`15/06`) for most of Europe, MDY (`06/15`) for US/AU/CA and Japanese
+- Date separator: `.` for German locales (`15.06`), `/` for all others
+- Clock: 24-hour (`H: 14:30`) for European, Japanese, and Chinese locales; 12-hour (`H: 02:30 PM`) for US, AU, CA
+- Weekday abbreviations in the native language: Italian (`LUN MAR MER GIO VEN SAB DOM`), German (`MO DI MI DO FR SA SO`), French (`LUN MAR MER JEU VEN SAM DIM`), Spanish (`LUN MAR MIE JUE VIE SAB DOM`), Portuguese (`SEG TER QUA QUI SEX SAB DOM`), Japanese (`月 火 水 木 金 土 日`), Chinese (`一 二 三 四 五 六 日`), English (`MON TUE WED THU FRI SAT SUN`)
+
+**UI labels**
+
+| Language | Effort label | N/A string | Error prefix |
+|----------|-------------|------------|--------------|
+| English (`en`) | Effort | N/A | STATUS ERROR |
+| Italian (`it`) | Effort | N/D | ERRORE STATUSBAR |
+| German (`de`) | Aufwand | N/A | STATUSLEISTE FEHLER |
+| French (`fr`) | Effort | N/V | ERREUR STATUSBAR |
+| Spanish (`es`) | Esfuerzo | N/V | ERROR STATUSBAR |
+| Portuguese (`pt`) | Esforco | N/D | ERRO STATUSBAR |
+| Japanese (`ja`) | Effort | N/A | STATUS ERROR |
+| Chinese (`zh`) | Effort | N/A | STATUS ERROR |
+
+### Auto-Detection
+
+Each runtime reads the locale from the operating system — no environment variable needs to be set manually:
+
+| Runtime | Detection method |
+|---------|-----------------|
+| PowerShell | `$PSCulture` (reflects the Windows system culture via .NET `CultureInfo`) |
+| Bash | `$LC_MONETARY` → `$LC_ALL` → `$LANG` (first non-empty value, encoding suffix stripped) |
+| Python | `locale.getlocale()` → `$LANG` → `$LC_ALL` (stdlib, no external packages) |
 
 ---
 
