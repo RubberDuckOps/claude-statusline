@@ -33,19 +33,20 @@ $ERROR_TTL    = 30    # seconds — API error backoff (4d)
 $API_TIMEOUT  = 3     # seconds — HTTP API call timeout
 
 # Locale → currency table: @{ Symbol; DecSep; SymBefore; SymSpace; Decimals }
+$euro = [char]0x20AC
 $script:CurrencyTable = @{
-    'it_IT' = @{ Symbol='€';   DecSep=','; SymBefore=$false; SymSpace=$true;  Decimals=2 }
-    'de_DE' = @{ Symbol='€';   DecSep=','; SymBefore=$false; SymSpace=$true;  Decimals=2 }
-    'fr_FR' = @{ Symbol='€';   DecSep=','; SymBefore=$false; SymSpace=$true;  Decimals=2 }
-    'es_ES' = @{ Symbol='€';   DecSep=','; SymBefore=$false; SymSpace=$true;  Decimals=2 }
-    'pt_PT' = @{ Symbol='€';   DecSep=','; SymBefore=$false; SymSpace=$true;  Decimals=2 }
+    'it_IT' = @{ Symbol=$euro; DecSep=','; SymBefore=$false; SymSpace=$true;  Decimals=2 }
+    'de_DE' = @{ Symbol=$euro; DecSep=','; SymBefore=$false; SymSpace=$true;  Decimals=2 }
+    'fr_FR' = @{ Symbol=$euro; DecSep=','; SymBefore=$false; SymSpace=$true;  Decimals=2 }
+    'es_ES' = @{ Symbol=$euro; DecSep=','; SymBefore=$false; SymSpace=$true;  Decimals=2 }
+    'pt_PT' = @{ Symbol=$euro; DecSep=','; SymBefore=$false; SymSpace=$true;  Decimals=2 }
     'en_US' = @{ Symbol='$';   DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=2 }
     'en_AU' = @{ Symbol='$';   DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=2 }
     'en_CA' = @{ Symbol='$';   DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=2 }
-    'en_GB' = @{ Symbol='£';   DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=2 }
-    'ja_JP' = @{ Symbol='¥';   DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=0 }
-    'zh_CN' = @{ Symbol='¥';   DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=2 }
-    'zh_TW' = @{ Symbol='¥';   DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=2 }
+    'en_GB' = @{ Symbol=([char]0x00A3); DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=2 }
+    'ja_JP' = @{ Symbol=([char]0x00A5); DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=0 }
+    'zh_CN' = @{ Symbol=([char]0x00A5); DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=2 }
+    'zh_TW' = @{ Symbol=([char]0x00A5); DecSep='.'; SymBefore=$true;  SymSpace=$false; Decimals=2 }
     'fr_CH' = @{ Symbol='CHF'; DecSep='.'; SymBefore=$true;  SymSpace=$true;  Decimals=2 }
     'de_CH' = @{ Symbol='CHF'; DecSep='.'; SymBefore=$true;  SymSpace=$true;  Decimals=2 }
     'it_CH' = @{ Symbol='CHF'; DecSep='.'; SymBefore=$true;  SymSpace=$true;  Decimals=2 }
@@ -66,16 +67,16 @@ $script:DateTable = @{
     'de_CH' = @{ Days=@('SO', 'MO', 'DI', 'MI', 'DO', 'FR', 'SA' ); Order='DMY'; Sep='.'; H24=$true  }
     'fr_FR' = @{ Days=@('DIM','LUN','MAR','MER','JEU','VEN','SAM'); Order='DMY'; Sep='/'; H24=$true  }
     'fr_CH' = @{ Days=@('DIM','LUN','MAR','MER','JEU','VEN','SAM'); Order='DMY'; Sep='/'; H24=$true  }
-    'es_ES' = @{ Days=@('DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'); Order='DMY'; Sep='/'; H24=$true  }
-    'pt_PT' = @{ Days=@('DOM','SEG','TER','QUA','QUI','SEX','SÁB'); Order='DMY'; Sep='/'; H24=$true  }
-    'pt_BR' = @{ Days=@('DOM','SEG','TER','QUA','QUI','SEX','SÁB'); Order='DMY'; Sep='/'; H24=$true  }
+    'es_ES' = @{ Days=@('DOM','LUN','MAR','MIE','JUE','VIE','SAB'); Order='DMY'; Sep='/'; H24=$true  }
+    'pt_PT' = @{ Days=@('DOM','SEG','TER','QUA','QUI','SEX','SAB'); Order='DMY'; Sep='/'; H24=$true  }
+    'pt_BR' = @{ Days=@('DOM','SEG','TER','QUA','QUI','SEX','SAB'); Order='DMY'; Sep='/'; H24=$true  }
     'en_US' = @{ Days=@('SUN','MON','TUE','WED','THU','FRI','SAT'); Order='MDY'; Sep='/'; H24=$false }
     'en_AU' = @{ Days=@('SUN','MON','TUE','WED','THU','FRI','SAT'); Order='MDY'; Sep='/'; H24=$false }
     'en_CA' = @{ Days=@('SUN','MON','TUE','WED','THU','FRI','SAT'); Order='MDY'; Sep='/'; H24=$false }
     'en_GB' = @{ Days=@('SUN','MON','TUE','WED','THU','FRI','SAT'); Order='DMY'; Sep='/'; H24=$true  }
-    'ja_JP' = @{ Days=@('日', '月', '火', '水', '木', '金', '土' ); Order='MDY'; Sep='/'; H24=$true  }
-    'zh_CN' = @{ Days=@('日', '一', '二', '三', '四', '五', '六' ); Order='DMY'; Sep='/'; H24=$true  }
-    'zh_TW' = @{ Days=@('日', '一', '二', '三', '四', '五', '六' ); Order='DMY'; Sep='/'; H24=$true  }
+    'ja_JP' = @{ Days=@('SUN','MON','TUE','WED','THU','FRI','SAT'); Order='MDY'; Sep='/'; H24=$true  }
+    'zh_CN' = @{ Days=@('SUN','MON','TUE','WED','THU','FRI','SAT'); Order='DMY'; Sep='/'; H24=$true  }
+    'zh_TW' = @{ Days=@('SUN','MON','TUE','WED','THU','FRI','SAT'); Order='DMY'; Sep='/'; H24=$true  }
 }
 $script:DateFmt = if ($script:DateTable.ContainsKey($_locale)) {
     $script:DateTable[$_locale]
@@ -89,7 +90,7 @@ $script:I18N = @{
     'de' = @{ Effort='Aufwand';  NA='N/A'; Error='STATUSLEISTE FEHLER' }
     'fr' = @{ Effort='Effort';   NA='N/V'; Error='ERREUR STATUSBAR' }
     'es' = @{ Effort='Esfuerzo'; NA='N/V'; Error='ERROR STATUSBAR' }
-    'pt' = @{ Effort='Esforço';  NA='N/D'; Error='ERRO STATUSBAR' }
+    'pt' = @{ Effort='Esforco';  NA='N/D'; Error='ERRO STATUSBAR' }
     'ja' = @{ Effort='Effort';   NA='N/A'; Error='STATUS ERROR' }
     'zh' = @{ Effort='Effort';   NA='N/A'; Error='STATUS ERROR' }
 }
@@ -426,7 +427,7 @@ try {
     }
 
     # Stale-while-revalidate visual indicators (TASK-4b)
-    $staleFlag = if ($cacheState -eq 'stale' -and $cacheAge -gt ($USAGE_TTL * 2)) { '⚠ ' } else { '' }
+    $staleFlag = if ($cacheState -eq 'stale' -and $cacheAge -gt ($USAGE_TTL * 2)) { "$([char]0x26A0) " } else { '' }
     $uvc       = if ($cacheState -eq 'missing') { $cGray  } else { '' }
     $ucr       = if ($cacheState -eq 'missing') { $cReset } else { '' }
     $pc5hDisp  = if ($cacheState -eq 'missing') { $cGray  } else { Get-PctColor $u5h }

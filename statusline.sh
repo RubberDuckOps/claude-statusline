@@ -68,11 +68,11 @@ _SYS_LOCALE="${_raw_locale:-}"
 _init_currency() {
     local sym dec sym_before sym_space dec_places
     case "$_SYS_LOCALE" in
-        it_IT|de_DE|fr_FR|es_ES|pt_PT) sym='€';   dec=','; sym_before=0; sym_space=1; dec_places=2 ;;
-        en_US|en_AU|en_CA)             sym='$';   dec='.'; sym_before=1; sym_space=0; dec_places=2 ;;
-        en_GB)                         sym='£';   dec='.'; sym_before=1; sym_space=0; dec_places=2 ;;
-        ja_JP)                         sym='¥';   dec='.'; sym_before=1; sym_space=0; dec_places=0 ;;
-        zh_CN|zh_TW)                   sym='¥';   dec='.'; sym_before=1; sym_space=0; dec_places=2 ;;
+        it_IT|de_DE|fr_FR|es_ES|pt_PT) sym=$'\u20ac'; dec=','; sym_before=0; sym_space=1; dec_places=2 ;;
+        en_US|en_AU|en_CA)             sym='$';       dec='.'; sym_before=1; sym_space=0; dec_places=2 ;;
+        en_GB)                         sym=$'\u00a3'; dec='.'; sym_before=1; sym_space=0; dec_places=2 ;;
+        ja_JP)                         sym=$'\u00a5'; dec='.'; sym_before=1; sym_space=0; dec_places=0 ;;
+        zh_CN|zh_TW)                   sym=$'\u00a5'; dec='.'; sym_before=1; sym_space=0; dec_places=2 ;;
         fr_CH|de_CH|it_CH)             sym='CHF'; dec='.'; sym_before=1; sym_space=1; dec_places=2 ;;
         pt_BR)                         sym='R$';  dec=','; sym_before=1; sym_space=0; dec_places=2 ;;
         *)                             sym='$';   dec='.'; sym_before=1; sym_space=0; dec_places=2 ;;
@@ -102,12 +102,12 @@ _init_date_fmt() {
         it_IT|it_CH)         days_arr=("" "LUN" "MAR" "MER" "GIO" "VEN" "SAB" "DOM"); order="DMY"; sep="/"; h24=1 ;;
         de_DE|de_CH)         days_arr=("" "MO"  "DI"  "MI"  "DO"  "FR"  "SA"  "SO" ); order="DMY"; sep="."; h24=1 ;;
         fr_FR|fr_CH)         days_arr=("" "LUN" "MAR" "MER" "JEU" "VEN" "SAM" "DIM"); order="DMY"; sep="/"; h24=1 ;;
-        es_ES)               days_arr=("" "LUN" "MAR" "MIÉ" "JUE" "VIE" "SÁB" "DOM"); order="DMY"; sep="/"; h24=1 ;;
-        pt_PT|pt_BR)         days_arr=("" "SEG" "TER" "QUA" "QUI" "SEX" "SÁB" "DOM"); order="DMY"; sep="/"; h24=1 ;;
+        es_ES)               days_arr=("" "LUN" "MAR" "MIE" "JUE" "VIE" "SAB" "DOM"); order="DMY"; sep="/"; h24=1 ;;
+        pt_PT|pt_BR)         days_arr=("" "SEG" "TER" "QUA" "QUI" "SEX" "SAB" "DOM"); order="DMY"; sep="/"; h24=1 ;;
         en_US|en_AU|en_CA)   days_arr=("" "MON" "TUE" "WED" "THU" "FRI" "SAT" "SUN"); order="MDY"; sep="/"; h24=0 ;;
         en_GB)               days_arr=("" "MON" "TUE" "WED" "THU" "FRI" "SAT" "SUN"); order="DMY"; sep="/"; h24=1 ;;
-        ja_JP)               days_arr=("" "月"  "火"  "水"  "木"  "金"  "土"  "日" ); order="MDY"; sep="/"; h24=1 ;;
-        zh_CN|zh_TW)         days_arr=("" "一"  "二"  "三"  "四"  "五"  "六"  "日" ); order="DMY"; sep="/"; h24=1 ;;
+        ja_JP)               days_arr=("" "MON" "TUE" "WED" "THU" "FRI" "SAT" "SUN"); order="MDY"; sep="/"; h24=1 ;;
+        zh_CN|zh_TW)         days_arr=("" "MON" "TUE" "WED" "THU" "FRI" "SAT" "SUN"); order="DMY"; sep="/"; h24=1 ;;
         *)                   days_arr=("" "MON" "TUE" "WED" "THU" "FRI" "SAT" "SUN"); order="MDY"; sep="/"; h24=0 ;;
     esac
     DATE_DAY_NAMES=("${days_arr[@]}")
@@ -131,7 +131,7 @@ _init_i18n() {
         de) I18N_EFFORT="Aufwand";  I18N_NA="N/A"; I18N_ERROR="STATUSLEISTE FEHLER" ;;
         fr) I18N_EFFORT="Effort";   I18N_NA="N/V"; I18N_ERROR="ERREUR STATUSBAR" ;;
         es) I18N_EFFORT="Esfuerzo"; I18N_NA="N/V"; I18N_ERROR="ERROR STATUSBAR" ;;
-        pt) I18N_EFFORT="Esforço";  I18N_NA="N/D"; I18N_ERROR="ERRO STATUSBAR" ;;
+        pt) I18N_EFFORT="Esforco";  I18N_NA="N/D"; I18N_ERROR="ERRO STATUSBAR" ;;
         ja) I18N_EFFORT="Effort";   I18N_NA="N/A"; I18N_ERROR="STATUS ERROR" ;;
         zh) I18N_EFFORT="Effort";   I18N_NA="N/A"; I18N_ERROR="STATUS ERROR" ;;
         *)  I18N_EFFORT="Effort";   I18N_NA="N/A"; I18N_ERROR="STATUS ERROR" ;;
@@ -673,7 +673,7 @@ main() {
     local stale_flag="" uvc="" ucr=""
     local u5h_pct_disp="${u5h_pct_color}" uwk_pct_disp="${uwk_pct_color}"
     if [[ "$cache_state" == "stale" ]] && (( cache_age > USAGE_TTL * 2 )); then
-        stale_flag="⚠ "
+        stale_flag=$'\u26a0 '
     fi
     if [[ "$cache_state" == "missing" ]]; then
         uvc="${cGray}"

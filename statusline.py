@@ -59,18 +59,18 @@ _GRADIENT_STOPS: List[Tuple[float, Tuple[int, int, int]]] = [
 # Currency localisation — locale → (symbol, dec_sep, sym_before, space, decimals)
 # ---------------------------------------------------------------------------
 _CURRENCY_TABLE: Dict[str, Tuple[str, str, bool, bool, int]] = {
-    'it_IT': ('€',   ',', False, True,  2),
-    'de_DE': ('€',   ',', False, True,  2),
-    'fr_FR': ('€',   ',', False, True,  2),
-    'es_ES': ('€',   ',', False, True,  2),
-    'pt_PT': ('€',   ',', False, True,  2),
-    'en_US': ('$',   '.', True,  False, 2),
-    'en_AU': ('$',   '.', True,  False, 2),
-    'en_CA': ('$',   '.', True,  False, 2),
-    'en_GB': ('£',   '.', True,  False, 2),
-    'ja_JP': ('¥',   '.', True,  False, 0),
-    'zh_CN': ('¥',   '.', True,  False, 2),
-    'zh_TW': ('¥',   '.', True,  False, 2),
+    'it_IT': ('\u20ac', ',', False, True,  2),
+    'de_DE': ('\u20ac', ',', False, True,  2),
+    'fr_FR': ('\u20ac', ',', False, True,  2),
+    'es_ES': ('\u20ac', ',', False, True,  2),
+    'pt_PT': ('\u20ac', ',', False, True,  2),
+    'en_US': ('$',      '.', True,  False, 2),
+    'en_AU': ('$',      '.', True,  False, 2),
+    'en_CA': ('$',      '.', True,  False, 2),
+    'en_GB': ('\u00a3', '.', True,  False, 2),
+    'ja_JP': ('\u00a5', '.', True,  False, 0),
+    'zh_CN': ('\u00a5', '.', True,  False, 2),
+    'zh_TW': ('\u00a5', '.', True,  False, 2),
     'fr_CH': ('CHF', '.', True,  True,  2),
     'de_CH': ('CHF', '.', True,  True,  2),
     'it_CH': ('CHF', '.', True,  True,  2),
@@ -85,16 +85,16 @@ _DATE_TABLE: Dict[str, Dict] = {
     'de_CH': {'days': ['','MO','DI','MI','DO','FR','SA','SO'],        'order':'DMY','sep':'.','h24':True},
     'fr_FR': {'days': ['','LUN','MAR','MER','JEU','VEN','SAM','DIM'], 'order':'DMY','sep':'/','h24':True},
     'fr_CH': {'days': ['','LUN','MAR','MER','JEU','VEN','SAM','DIM'], 'order':'DMY','sep':'/','h24':True},
-    'es_ES': {'days': ['','LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'],'order':'DMY','sep':'/','h24':True},
-    'pt_PT': {'days': ['','SEG','TER','QUA','QUI','SEX','SÁB','DOM'], 'order':'DMY','sep':'/','h24':True},
-    'pt_BR': {'days': ['','SEG','TER','QUA','QUI','SEX','SÁB','DOM'], 'order':'DMY','sep':'/','h24':True},
+    'es_ES': {'days': ['','LUN','MAR','MIE','JUE','VIE','SAB','DOM'],'order':'DMY','sep':'/','h24':True},
+    'pt_PT': {'days': ['','SEG','TER','QUA','QUI','SEX','SAB','DOM'], 'order':'DMY','sep':'/','h24':True},
+    'pt_BR': {'days': ['','SEG','TER','QUA','QUI','SEX','SAB','DOM'], 'order':'DMY','sep':'/','h24':True},
     'en_US': {'days': ['','MON','TUE','WED','THU','FRI','SAT','SUN'], 'order':'MDY','sep':'/','h24':False},
     'en_AU': {'days': ['','MON','TUE','WED','THU','FRI','SAT','SUN'], 'order':'MDY','sep':'/','h24':False},
     'en_CA': {'days': ['','MON','TUE','WED','THU','FRI','SAT','SUN'], 'order':'MDY','sep':'/','h24':False},
     'en_GB': {'days': ['','MON','TUE','WED','THU','FRI','SAT','SUN'], 'order':'DMY','sep':'/','h24':True},
-    'ja_JP': {'days': ['','月','火','水','木','金','土','日'],         'order':'MDY','sep':'/','h24':True},
-    'zh_CN': {'days': ['','一','二','三','四','五','六','日'],         'order':'DMY','sep':'/','h24':True},
-    'zh_TW': {'days': ['','一','二','三','四','五','六','日'],         'order':'DMY','sep':'/','h24':True},
+    'ja_JP': {'days': ['','MON','TUE','WED','THU','FRI','SAT','SUN'], 'order':'MDY','sep':'/','h24':True},
+    'zh_CN': {'days': ['','MON','TUE','WED','THU','FRI','SAT','SUN'], 'order':'DMY','sep':'/','h24':True},
+    'zh_TW': {'days': ['','MON','TUE','WED','THU','FRI','SAT','SUN'], 'order':'DMY','sep':'/','h24':True},
 }
 _FALLBACK_DATE: Dict = _DATE_TABLE['en_US']
 
@@ -104,7 +104,7 @@ _I18N: Dict[str, Dict[str, str]] = {
     'de': {'effort': 'Aufwand',  'na': 'N/A', 'error': 'STATUSLEISTE FEHLER'},
     'fr': {'effort': 'Effort',   'na': 'N/V', 'error': 'ERREUR STATUSBAR'},
     'es': {'effort': 'Esfuerzo', 'na': 'N/V', 'error': 'ERROR STATUSBAR'},
-    'pt': {'effort': 'Esforço',  'na': 'N/D', 'error': 'ERRO STATUSBAR'},
+    'pt': {'effort': 'Esforco',  'na': 'N/D', 'error': 'ERRO STATUSBAR'},
     'ja': {'effort': 'Effort',   'na': 'N/A', 'error': 'STATUS ERROR'},
     'zh': {'effort': 'Effort',   'na': 'N/A', 'error': 'STATUS ERROR'},
 }
@@ -537,7 +537,7 @@ def main() -> None:
     pc_wk   = pct_color(uwk)
 
     # Indicatori visivi stale-while-revalidate (TASK-4b)
-    stale_flag  = '⚠ ' if (_usage_state == 'stale' and _cache_age > USAGE_TTL * 2) else ''
+    stale_flag  = '\u26a0 ' if (_usage_state == 'stale' and _cache_age > USAGE_TTL * 2) else ''
     uvc         = cGr if _usage_state == 'missing' else ''   # color for N/A values
     ucr         = cR  if _usage_state == 'missing' else ''   # reset after N/A values
     pc_5h_disp  = cGr if _usage_state == 'missing' else pc_5h
