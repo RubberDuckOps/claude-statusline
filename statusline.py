@@ -99,14 +99,14 @@ _DATE_TABLE: Dict[str, Dict] = {
 _FALLBACK_DATE: Dict = _DATE_TABLE['en_US']
 
 _I18N: Dict[str, Dict[str, str]] = {
-    'it': {'effort': 'Effort',   'na': 'N/D', 'error': 'ERRORE STATUSBAR'},
-    'en': {'effort': 'Effort',   'na': 'N/A', 'error': 'STATUS ERROR'},
-    'de': {'effort': 'Aufwand',  'na': 'N/A', 'error': 'STATUSLEISTE FEHLER'},
-    'fr': {'effort': 'Effort',   'na': 'N/V', 'error': 'ERREUR STATUSBAR'},
-    'es': {'effort': 'Esfuerzo', 'na': 'N/V', 'error': 'ERROR STATUSBAR'},
-    'pt': {'effort': 'Esforco',  'na': 'N/D', 'error': 'ERRO STATUSBAR'},
-    'ja': {'effort': 'Effort',   'na': 'N/A', 'error': 'STATUS ERROR'},
-    'zh': {'effort': 'Effort',   'na': 'N/A', 'error': 'STATUS ERROR'},
+    'it': {'effort': 'Effort',   'na': 'N/D', 'error': 'ERRORE STATUSBAR',      'remaining_pre': 'mancano ', 'remaining_post': ''},
+    'en': {'effort': 'Effort',   'na': 'N/A', 'error': 'STATUS ERROR',          'remaining_pre': '',          'remaining_post': ' left'},
+    'de': {'effort': 'Aufwand',  'na': 'N/A', 'error': 'STATUSLEISTE FEHLER',   'remaining_pre': 'noch ',     'remaining_post': ''},
+    'fr': {'effort': 'Effort',   'na': 'N/V', 'error': 'ERREUR STATUSBAR',      'remaining_pre': 'reste ',    'remaining_post': ''},
+    'es': {'effort': 'Esfuerzo', 'na': 'N/V', 'error': 'ERROR STATUSBAR',       'remaining_pre': 'faltan ',   'remaining_post': ''},
+    'pt': {'effort': 'Esforco',  'na': 'N/D', 'error': 'ERRO STATUSBAR',        'remaining_pre': 'faltam ',   'remaining_post': ''},
+    'ja': {'effort': 'Effort',   'na': 'N/A', 'error': 'STATUS ERROR',          'remaining_pre': '',          'remaining_post': ' left'},
+    'zh': {'effort': 'Effort',   'na': 'N/A', 'error': 'STATUS ERROR',          'remaining_pre': '',          'remaining_post': ' left'},
 }
 
 
@@ -187,6 +187,23 @@ def fmt_date(raw: str) -> str:
         return f'{day} {date_str} H: {time_str}'
     except (ValueError, OverflowError, OSError):
         return _I18N_FMT['na']
+
+
+def fmt_remaining(raw: str) -> str:
+    """ISO 8601 reset timestamp → ' [pre HH:MM post]', or '' if elapsed/missing."""
+    if not raw:
+        return ''
+    try:
+        dt = datetime.fromisoformat(raw.replace('Z', '+00:00'))
+        delta = int((dt - datetime.now(dt.tzinfo)).total_seconds())
+        if delta <= 0:
+            return ''
+        h, m = divmod(delta // 60, 60)
+        pre  = _I18N_FMT.get('remaining_pre', '')
+        post = _I18N_FMT.get('remaining_post', ' left')
+        return f' [{pre}{h:02d}:{m:02d}{post}]'
+    except (ValueError, OverflowError, OSError):
+        return ''
 
 
 def fmt_tokens(n: int) -> str:
@@ -476,6 +493,7 @@ def main() -> None:
 
     u5h = uwk = 0
     r5h = rwk = _I18N_FMT['na']
+    raw_5h_reset = raw_wk_reset = ''
     extra_usage: Optional[bool] = None
     month_limit = used_credits = None
     month_util  = _I18N_FMT['na']
@@ -488,8 +506,10 @@ def main() -> None:
 
         u5h = int(float(fh.get('utilization') or 0))
         uwk = int(float(sd.get('utilization') or 0))
-        r5h = fmt_date(fh.get('resets_at', ''))
-        rwk = fmt_date(sd.get('resets_at', ''))
+        raw_5h_reset = fh.get('resets_at', '')
+        raw_wk_reset = sd.get('resets_at', '')
+        r5h = fmt_date(raw_5h_reset)
+        rwk = fmt_date(raw_wk_reset)
 
         extra_usage  = ex.get('is_enabled')
         month_limit  = ex.get('monthly_limit')
@@ -579,11 +599,11 @@ def main() -> None:
 
         f'{sep}\n',
 
-        f'{cW}USAGE 5H:{cR} {bar_5h} {pc_5h_disp}{stale_flag}{u5h:3d}%{cR} | {cY}RST:{cR} {uvc}{r5h}{ucr}\n',
+        f'{cW}USAGE 5H:{cR} {bar_5h} {pc_5h_disp}{stale_flag}{u5h:3d}%{cR} | {cY}RST:{cR} {uvc}{r5h}{ucr}{fmt_remaining(raw_5h_reset)}\n',
 
         f'{sep}\n',
 
-        f'{cW}USAGE WK:{cR} {bar_wk} {pc_wk_disp}{stale_flag}{uwk:3d}%{cR} | {cY}RST:{cR} {uvc}{rwk}{ucr}\n',
+        f'{cW}USAGE WK:{cR} {bar_wk} {pc_wk_disp}{stale_flag}{uwk:3d}%{cR} | {cY}RST:{cR} {uvc}{rwk}{ucr}{fmt_remaining(raw_wk_reset)}\n',
 
         f'{sep}\n',
 

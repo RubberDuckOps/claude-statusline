@@ -85,14 +85,14 @@ $script:DateFmt = if ($script:DateTable.ContainsKey($_locale)) {
 }
 
 $script:I18N = @{
-    'it' = @{ Effort='Effort';   NA='N/D'; Error='ERRORE STATUSBAR' }
-    'en' = @{ Effort='Effort';   NA='N/A'; Error='STATUS ERROR' }
-    'de' = @{ Effort='Aufwand';  NA='N/A'; Error='STATUSLEISTE FEHLER' }
-    'fr' = @{ Effort='Effort';   NA='N/V'; Error='ERREUR STATUSBAR' }
-    'es' = @{ Effort='Esfuerzo'; NA='N/V'; Error='ERROR STATUSBAR' }
-    'pt' = @{ Effort='Esforco';  NA='N/D'; Error='ERRO STATUSBAR' }
-    'ja' = @{ Effort='Effort';   NA='N/A'; Error='STATUS ERROR' }
-    'zh' = @{ Effort='Effort';   NA='N/A'; Error='STATUS ERROR' }
+    'it' = @{ Effort='Effort';   NA='N/D'; Error='ERRORE STATUSBAR';      RemPre='mancano '; RemPost='' }
+    'en' = @{ Effort='Effort';   NA='N/A'; Error='STATUS ERROR';          RemPre='';          RemPost=' left' }
+    'de' = @{ Effort='Aufwand';  NA='N/A'; Error='STATUSLEISTE FEHLER';   RemPre='noch ';     RemPost='' }
+    'fr' = @{ Effort='Effort';   NA='N/V'; Error='ERREUR STATUSBAR';      RemPre='reste ';    RemPost='' }
+    'es' = @{ Effort='Esfuerzo'; NA='N/V'; Error='ERROR STATUSBAR';       RemPre='faltan ';   RemPost='' }
+    'pt' = @{ Effort='Esforco';  NA='N/D'; Error='ERRO STATUSBAR';        RemPre='faltam ';   RemPost='' }
+    'ja' = @{ Effort='Effort';   NA='N/A'; Error='STATUS ERROR';          RemPre='';          RemPost=' left' }
+    'zh' = @{ Effort='Effort';   NA='N/A'; Error='STATUS ERROR';          RemPre='';          RemPost=' left' }
 }
 $_lang2 = if ($_locale.Length -ge 2) { $_locale.Substring(0,2).ToLower() } else { 'en' }
 $script:I18nFmt = if ($script:I18N.ContainsKey($_lang2)) { $script:I18N[$_lang2] } else { $script:I18N['en'] }
@@ -201,6 +201,20 @@ try {
             $timeStr = if ($fmt.H24) { $d.ToString('HH:mm') } else { $d.ToString('hh:mm tt') }
             return "$day $dateStr H: $timeStr"
         } catch { return $script:I18nFmt.NA }
+    }
+
+    function Get-Remaining($rawDate) {
+        if (!$rawDate) { return '' }
+        try {
+            $d     = [DateTime]::Parse($rawDate, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind)
+            $delta = [int]($d - [DateTime]::UtcNow).TotalSeconds
+            if ($delta -le 0) { return '' }
+            $h = [int][Math]::Floor($delta / 3600)
+            $m = [int][Math]::Floor(($delta % 3600) / 60)
+            $pre  = $script:I18nFmt.RemPre
+            $post = $script:I18nFmt.RemPost
+            return " [$pre$($h.ToString('D2')):$($m.ToString('D2'))$post]"
+        } catch { return '' }
     }
 
     # API data mapping
@@ -460,11 +474,11 @@ try {
     # Line CONTEXT: label(9) + bar(76) + " XXX%" (5) = 90
     [void]$sb.AppendLine("${cWhite}CONTEXT:$cReset $ctxBar $(Get-PctColor $pct)$("{0,3}%" -f $pct)$cReset")
     [void]$sb.AppendLine($sep90)
-    # Line USAGE 5H: label(10) + bar(49) + " XXX% | RST: DDD dd/MM H: HH:mm" (31) = 90
-    [void]$sb.AppendLine("${cWhite}USAGE 5H:$cReset $u5hBar $pc5hDisp$staleFlag$("{0,3}%" -f $u5h)$cReset | ${cYellow}RST:$cReset $uvc$r5h$ucr")
+    # Line USAGE 5H: label(10) + bar(49) + " XXX% | RST: DDD dd/MM H: HH:mm [remaining]"
+    [void]$sb.AppendLine("${cWhite}USAGE 5H:$cReset $u5hBar $pc5hDisp$staleFlag$("{0,3}%" -f $u5h)$cReset | ${cYellow}RST:$cReset $uvc$r5h$ucr$(Get-Remaining $usageData.five_hour.resets_at)")
     [void]$sb.AppendLine($sep90)
-    # Line USAGE WK: label(10) + bar(49) + " XXX% | RST: DDD dd/MM H: HH:mm" (31) = 90
-    [void]$sb.AppendLine("${cWhite}USAGE WK:$cReset $uWkBar $pcWkDisp$staleFlag$("{0,3}%" -f $uWk)$cReset | ${cYellow}RST:$cReset $uvc$rWk$ucr")
+    # Line USAGE WK: label(10) + bar(49) + " XXX% | RST: DDD dd/MM H: HH:mm [remaining]"
+    [void]$sb.AppendLine("${cWhite}USAGE WK:$cReset $uWkBar $pcWkDisp$staleFlag$("{0,3}%" -f $uWk)$cReset | ${cYellow}RST:$cReset $uvc$rWk$ucr$(Get-Remaining $usageData.seven_day.resets_at)")
     [void]$sb.AppendLine($sep90)
     # Line EXTRA USAGE: status | USED | MONTH | UTIL | BALANCE
     [void]$sb.AppendLine("${cWhite}XTRA USG:$cReset $extraColor$extraLabel$cReset | ${cWhite}USED:$cReset $uvc$usedFmt$ucr | ${cWhite}MONTH:$cReset $uvc$monthFmt$ucr | ${cWhite}UTIL:$cReset $uvc$monthUtil$ucr | ${cWhite}BALANCE:$cReset $uvc$balanceFmt$ucr")

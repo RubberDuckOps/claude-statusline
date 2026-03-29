@@ -127,16 +127,14 @@ _init_date_fmt
 _init_i18n() {
     local lang2="${_SYS_LOCALE:0:2}"
     case "$lang2" in
-        it) I18N_EFFORT="Effort";   I18N_NA="N/D"; I18N_ERROR="ERRORE STATUSBAR" ;;
-        de) I18N_EFFORT="Aufwand";  I18N_NA="N/A"; I18N_ERROR="STATUSLEISTE FEHLER" ;;
-        fr) I18N_EFFORT="Effort";   I18N_NA="N/V"; I18N_ERROR="ERREUR STATUSBAR" ;;
-        es) I18N_EFFORT="Esfuerzo"; I18N_NA="N/V"; I18N_ERROR="ERROR STATUSBAR" ;;
-        pt) I18N_EFFORT="Esforco";  I18N_NA="N/D"; I18N_ERROR="ERRO STATUSBAR" ;;
-        ja) I18N_EFFORT="Effort";   I18N_NA="N/A"; I18N_ERROR="STATUS ERROR" ;;
-        zh) I18N_EFFORT="Effort";   I18N_NA="N/A"; I18N_ERROR="STATUS ERROR" ;;
-        *)  I18N_EFFORT="Effort";   I18N_NA="N/A"; I18N_ERROR="STATUS ERROR" ;;
+        it) I18N_EFFORT="Effort";   I18N_NA="N/D"; I18N_ERROR="ERRORE STATUSBAR";      I18N_REM_PRE="mancano "; I18N_REM_POST="" ;;
+        de) I18N_EFFORT="Aufwand";  I18N_NA="N/A"; I18N_ERROR="STATUSLEISTE FEHLER";   I18N_REM_PRE="noch ";     I18N_REM_POST="" ;;
+        fr) I18N_EFFORT="Effort";   I18N_NA="N/V"; I18N_ERROR="ERREUR STATUSBAR";      I18N_REM_PRE="reste ";    I18N_REM_POST="" ;;
+        es) I18N_EFFORT="Esfuerzo"; I18N_NA="N/V"; I18N_ERROR="ERROR STATUSBAR";       I18N_REM_PRE="faltan ";   I18N_REM_POST="" ;;
+        pt) I18N_EFFORT="Esforco";  I18N_NA="N/D"; I18N_ERROR="ERRO STATUSBAR";        I18N_REM_PRE="faltam ";   I18N_REM_POST="" ;;
+        *)  I18N_EFFORT="Effort";   I18N_NA="N/A"; I18N_ERROR="STATUS ERROR";          I18N_REM_PRE="";          I18N_REM_POST=" left" ;;
     esac
-    readonly I18N_EFFORT I18N_NA I18N_ERROR
+    readonly I18N_EFFORT I18N_NA I18N_ERROR I18N_REM_PRE I18N_REM_POST
 }
 _init_i18n
 
@@ -236,6 +234,30 @@ fmt_date() {
     if [[ "$DATE_ORDER" == "MDY" ]]; then date_str="${mm}${DATE_SEP}${dd}"
     else                                  date_str="${dd}${DATE_SEP}${mm}"; fi
     echo "${DATE_DAY_NAMES[$dow]} $date_str H: $time_str"
+}
+
+# ---------------------------------------------------------------------------
+# fmt_remaining RAW_DATE
+# Returns " [pre HH:MM post]" (time left until reset), or "" if elapsed/missing.
+# ---------------------------------------------------------------------------
+fmt_remaining() {
+    local raw="$1"
+    [[ -z "$raw" ]] && return
+    local now_epoch target_epoch delta
+    if (( DATE_IS_GNU )); then
+        target_epoch=$(date -d "$raw" +%s 2>/dev/null) || return
+    else
+        local raw_clean="${raw%Z}"
+        target_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S%z" "$raw" +%s 2>/dev/null) \
+            || target_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$raw_clean" +%s 2>/dev/null) \
+            || return
+    fi
+    now_epoch=$(date +%s)
+    delta=$(( target_epoch - now_epoch ))
+    (( delta <= 0 )) && return
+    local h=$(( delta / 3600 ))
+    local m=$(( (delta % 3600) / 60 ))
+    printf ' [%s%02d:%02d%s]' "$I18N_REM_PRE" "$h" "$m" "$I18N_REM_POST"
 }
 
 # ---------------------------------------------------------------------------
@@ -714,8 +736,8 @@ main() {
     line1="${cWhite}ENV:${cReset}${cCyan} ${model}${cReset} ${cGray}(${ctx_max_fmt} token)${cReset} | ${cWhite}${I18N_EFFORT}:${cReset} ${effort} | ${icoFolder} ${cWhite}${dir}${cReset} |${branch_str}"
     line2="${cWhite}CONTEXT_WINDOW${cReset} | ${cWhite}IN:${cReset} ${tok_in_fmt} | ${cWhite}OUT:${cReset} ${tok_out_fmt} | ${cWhite}Cached:${cReset} ${tok_cached_fmt} | ${cWhite}Total:${cReset} ${tok_total_fmt}"
     line3="${cWhite}CONTEXT:${cReset} ${ctx_bar} ${ctx_pct_color}$(printf '%3d%%' "$pct")${cReset}"
-    line4="${cWhite}USAGE 5H:${cReset} ${u5h_bar} ${u5h_pct_disp}${stale_flag}$(printf '%3d%%' "$u5h")${cReset} | ${cYellow}RST:${cReset} ${uvc}${r5h}${ucr}"
-    line5="${cWhite}USAGE WK:${cReset} ${uwk_bar} ${uwk_pct_disp}${stale_flag}$(printf '%3d%%' "$uwk")${cReset} | ${cYellow}RST:${cReset} ${uvc}${rwk}${ucr}"
+    line4="${cWhite}USAGE 5H:${cReset} ${u5h_bar} ${u5h_pct_disp}${stale_flag}$(printf '%3d%%' "$u5h")${cReset} | ${cYellow}RST:${cReset} ${uvc}${r5h}${ucr}$(fmt_remaining "$raw_5h_reset")"
+    line5="${cWhite}USAGE WK:${cReset} ${uwk_bar} ${uwk_pct_disp}${stale_flag}$(printf '%3d%%' "$uwk")${cReset} | ${cYellow}RST:${cReset} ${uvc}${rwk}${ucr}$(fmt_remaining "$raw_wk_reset")"
     line6="${cWhite}XTRA USG:${cReset} ${extra_color}${extra_label}${cReset} | ${cWhite}USED:${cReset} ${uvc}${used_fmt}${ucr} | ${cWhite}MONTH:${cReset} ${uvc}${month_fmt}${ucr} | ${cWhite}UTIL:${cReset} ${uvc}${month_util}${ucr} | ${cWhite}BALANCE:${cReset} ${uvc}${balance_fmt}${ucr}"
     local out
     out="${line1}"$'\n'"${_SEP90}"$'\n'"${line2}"$'\n'"${_SEP90}"$'\n'"${line3}"$'\n'"${_SEP90}"$'\n'"${line4}"$'\n'"${_SEP90}"$'\n'"${line5}"$'\n'"${_SEP90}"$'\n'"${line6}"$'\n'"${_SEP90}"
