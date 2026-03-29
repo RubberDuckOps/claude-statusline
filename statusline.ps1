@@ -261,7 +261,9 @@ try {
     $effortRaw = $null
     if (Test-Path $EFFORT_CACHE) {
         $ec = (Get-Content $EFFORT_CACHE -Raw) | ConvertFrom-Json -ErrorAction SilentlyContinue
-        if ($ec -and $now -lt [DateTime]::Parse($ec.expires, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind)) { $effortRaw = $ec.effort }
+        if ($ec -and $ec.expires) {
+            try { if ($now -lt [DateTime]::Parse($ec.expires, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind)) { $effortRaw = $ec.effort } } catch {}
+        }
     }
     if (-not $effortRaw) {
         foreach ($sp in @(
@@ -396,7 +398,9 @@ try {
         $branch = $null
         if (Test-Path $GIT_CACHE) {
             $gc = (Get-Content $GIT_CACHE -Raw) | ConvertFrom-Json -ErrorAction SilentlyContinue
-            if ($gc -and $gc.path -eq $path -and $gc.head_ref -eq $headRef -and $now -lt [DateTime]::Parse($gc.expires, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind)) {
+            $gcValid = $false
+            if ($gc -and $gc.expires) { try { $gcValid = $now -lt [DateTime]::Parse($gc.expires, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind) } catch {} }
+            if ($gc -and $gc.path -eq $path -and $gc.head_ref -eq $headRef -and $gcValid) {
                 $branch   = $gc.branch
                 $staged   = [int]$gc.staged
                 $modified = [int]$gc.modified
