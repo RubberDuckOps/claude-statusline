@@ -312,7 +312,7 @@ try {
         @(239, 68,  68)     # 100% — red
     )
     $script:cDimGray = "$e[38;2;60;60;60m"
-    $script:Sep90    = "$cGray" + ([string][char]0x2500 * 90) + "$cReset"
+    $script:Sep100    = "$cGray" + ([string][char]0x2500 * 107) + "$cReset"
 
     <#
     .SYNOPSIS
@@ -452,7 +452,7 @@ try {
     $pcWkDisp  = if ($cacheState -eq 'missing') { $cGray  } else { Get-PctColor $uWk }
 
     # --- FINAL OUTPUT ---
-    $sep90 = $script:Sep90
+    $sep100 = $script:Sep100
 
     # Pre-compute gradient bars
     $ctxBar = Get-GradientBar $pct 76
@@ -471,22 +471,22 @@ try {
     $sb = [System.Text.StringBuilder]::new(4096)
     # Line 1: ENV: Model (ctx) | Effort: X | 📁 dir | 🌿 Branch: main +S~M
     [void]$sb.AppendLine("${cWhite}ENV:$cReset$cCyan $model$cReset $cGray(${ctxMaxFmt} token)$cReset | ${cWhite}$($script:I18nFmt.Effort):$cReset $effort | $icoFolder ${cWhite}$dir$cReset |$branchStr")
-    [void]$sb.AppendLine($sep90)
+    [void]$sb.AppendLine($sep100)
     # Line 2: Session tokens — IN | OUT | Cached | Total
     [void]$sb.AppendLine("${cWhite}CONTEXT_WINDOW$cReset | ${cWhite}IN:$cReset $(Format-Tokens $tokIn) | ${cWhite}OUT:$cReset $(Format-Tokens $tokOut) | ${cWhite}Cached:$cReset $(Format-Tokens $tokCached) | ${cWhite}Total:$cReset $(Format-Tokens $tokTotal)")
-    [void]$sb.AppendLine($sep90)
+    [void]$sb.AppendLine($sep100)
     # Line CONTEXT: label(9) + bar(76) + " XXX%" (5) = 90
     [void]$sb.AppendLine("${cWhite}CONTEXT:$cReset $ctxBar $(Get-PctColor $pct)$("{0,3}%" -f $pct)$cReset")
-    [void]$sb.AppendLine($sep90)
+    [void]$sb.AppendLine($sep100)
     # Line USAGE 5H: label(10) + bar(49) + " XXX% | RST: DDD dd/MM H: HH:mm [remaining]"
     [void]$sb.AppendLine("${cWhite}USAGE 5H:$cReset $u5hBar $pc5hDisp$staleFlag$("{0,3}%" -f $u5h)$cReset | ${cYellow}RST:$cReset $uvc$r5h$ucr$(Get-Remaining $usageData.five_hour.resets_at)")
-    [void]$sb.AppendLine($sep90)
+    [void]$sb.AppendLine($sep100)
     # Line USAGE WK: label(10) + bar(49) + " XXX% | RST: DDD dd/MM H: HH:mm [remaining]"
     [void]$sb.AppendLine("${cWhite}USAGE WK:$cReset $uWkBar $pcWkDisp$staleFlag$("{0,3}%" -f $uWk)$cReset | ${cYellow}RST:$cReset $uvc$rWk$ucr$(Get-Remaining $usageData.seven_day.resets_at)")
-    [void]$sb.AppendLine($sep90)
+    [void]$sb.AppendLine($sep100)
     # Line EXTRA USAGE: status | USED | MONTH | UTIL | BALANCE
     [void]$sb.AppendLine("${cWhite}XTRA USG:$cReset $extraColor$extraLabel$cReset | ${cWhite}USED:$cReset $uvc$usedFmt$ucr | ${cWhite}MONTH:$cReset $uvc$monthFmt$ucr | ${cWhite}UTIL:$cReset $uvc$monthUtil$ucr | ${cWhite}BALANCE:$cReset $uvc$balanceFmt$ucr")
-    [void]$sb.AppendLine($sep90)
+    [void]$sb.AppendLine($sep100)
     [Console]::Write($sb.ToString())
 
 } catch {
