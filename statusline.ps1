@@ -18,8 +18,9 @@
     Dependencies : PowerShell 5.1+, git (optional), internet access (optional).
     Cache files  : %TEMP%\claude_*.json  (TTLs defined by $*_TTL constants).
 #>
-# Force UTF-8 output
+# Force UTF-8 output — both for console rendering and pipe encoding (PS 5.1 pipe default is ASCII)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding             = [System.Text.Encoding]::UTF8
 
 $CRED_FILE    = "$env:USERPROFILE\.claude\.credentials.json"
 $USAGE_CACHE       = "$env:TEMP\claude_usage_cache.json"
@@ -157,7 +158,7 @@ try {
                 if ($null -ne $usageData.five_hour -and $null -ne $usageData.seven_day) {
                     [System.IO.File]::WriteAllText($USAGE_CACHE,
                     ($usageData | ConvertTo-Json -Depth 10 -Compress),
-                    [System.Text.Encoding]::UTF8)
+                    (New-Object System.Text.UTF8Encoding($false)))
                     Remove-Item $USAGE_ERROR_CACHE -ErrorAction SilentlyContinue
                 }
             }
@@ -165,7 +166,7 @@ try {
             $errCode = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
             $errTs   = [long]($now.ToUniversalTime() - [DateTime]'1970-01-01T00:00:00Z').TotalSeconds
             $errObj  = [PSCustomObject]@{ error = "HTTP $errCode $($_.Exception.GetType().Name)"; timestamp = $errTs }
-            [System.IO.File]::WriteAllText($USAGE_ERROR_CACHE, ($errObj | ConvertTo-Json -Compress), [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText($USAGE_ERROR_CACHE, ($errObj | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
             if (Test-Path $USAGE_CACHE) { $usageData = (Get-Content $USAGE_CACHE -Raw) | ConvertFrom-Json }
         }
     }
@@ -207,7 +208,7 @@ try {
         if (!$rawDate) { return '' }
         try {
             $d     = [DateTime]::Parse($rawDate, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind)
-            $delta = [int]($d - [DateTime]::UtcNow).TotalSeconds
+            $delta = [int]($d - [DateTime]::Now).TotalSeconds
             if ($delta -le 0) { return '' }
             $h = [int][Math]::Floor($delta / 3600)
             $m = [int][Math]::Floor(($delta % 3600) / 60)
@@ -285,7 +286,7 @@ try {
         if ($effortObj.effort) {
             [System.IO.File]::WriteAllText($EFFORT_CACHE,
                 ($effortObj | ConvertTo-Json -Compress),
-                [System.Text.Encoding]::UTF8)
+                (New-Object System.Text.UTF8Encoding($false)))
         }
     }
     $effortMap = @{ low="Low"; medium="Medium"; high="High"; max="Max" }
@@ -431,7 +432,7 @@ try {
             if ($null -ne $gitObj.branch -and $null -ne $gitObj.path) {
                 [System.IO.File]::WriteAllText($GIT_CACHE,
                     ($gitObj | ConvertTo-Json -Compress),
-                    [System.Text.Encoding]::UTF8)
+                    (New-Object System.Text.UTF8Encoding($false)))
             }
         }
     }
@@ -455,7 +456,7 @@ try {
     $sep100 = $script:Sep100
 
     # Pre-compute gradient bars
-    $ctxBar = Get-GradientBar $pct 76
+    $ctxBar = Get-GradientBar $pct 92
     $u5hBar = Get-GradientBar $u5h 49
     $uWkBar = Get-GradientBar $uWk 49
 
@@ -475,7 +476,7 @@ try {
     # Line 2: Session tokens — IN | OUT | Cached | Total
     [void]$sb.AppendLine("${cWhite}CONTEXT_WINDOW$cReset | ${cWhite}IN:$cReset $(Format-Tokens $tokIn) | ${cWhite}OUT:$cReset $(Format-Tokens $tokOut) | ${cWhite}Cached:$cReset $(Format-Tokens $tokCached) | ${cWhite}Total:$cReset $(Format-Tokens $tokTotal)")
     [void]$sb.AppendLine($sep100)
-    # Line CONTEXT: label(9) + bar(76) + " XXX%" (5) = 90
+    # Line CONTEXT: label(9) + bar(92) + " XXX%" (5) = 106
     [void]$sb.AppendLine("${cWhite}CONTEXT:$cReset $ctxBar $(Get-PctColor $pct)$("{0,3}%" -f $pct)$cReset")
     [void]$sb.AppendLine($sep100)
     # Line USAGE 5H: label(10) + bar(49) + " XXX% | RST: DDD dd/MM H: HH:mm [remaining]"

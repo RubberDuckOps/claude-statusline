@@ -680,7 +680,7 @@ main() {
     # 8. Gradient bars and percentage colors
     # -----------------------------------------------------------------------
     local ctx_bar u5h_bar uwk_bar
-    ctx_bar=$(get_gradient_bar "$pct" 76)
+    ctx_bar=$(get_gradient_bar "$pct" 92)
     u5h_bar=$(get_gradient_bar "$u5h" 49)
     uwk_bar=$(get_gradient_bar "$uwk" 49)
 

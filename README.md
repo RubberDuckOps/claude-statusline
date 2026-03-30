@@ -1,8 +1,8 @@
-# Claude Code Statusline
+# Claude Code Statusline: Terminal HUD for Anthropic API Monitoring
 
-> A rich, performance-optimised HUD for [Claude Code](https://claude.ai/code) — live model info, token usage, Anthropic API consumption, and Git status in a single compact 6-line display.
+Claude Code Statusline is a high-performance terminal dashboard that provides real-time visibility into your AI development workflow. It offers 100% functional parity across Bash, PowerShell, and Python, tracking token usage, credits, and Git status in a single compact 6-line display.
 
-![Claude Code Statusline — live HUD](assets/statusline-hero.png)
+![Screenshot of Claude Code statusline — 6-line terminal HUD showing model name, token counters, effort level, and gradient bars.](assets/statusline-hero.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Security](https://img.shields.io/badge/security-hardened-green)](SECURITY.md)
@@ -13,33 +13,112 @@
 
 ---
 
-## Table of Contents
+## Table of contents
 
-- [Preview](#preview)
-- [Features](#features)
-- [Output Format](#output-format)
-- [Choose Your Variant](#choose-your-variant)
-- [PowerShell — Windows](#powershell--windows)
-- [Bash — Linux / macOS / WSL](#bash--linux--macos--wsl)
-- [Python — All Platforms](#python--all-platforms)
-- [Set Effort Level](#set-effort-level)
-- [Localisation](#localisation)
-- [Architecture](#architecture)
-- [Contributing](#contributing)
-- [File Structure](#file-structure)
-- [License](#license)
+- [Claude Code Statusline: Terminal HUD for Anthropic API Monitoring](#claude-code-statusline-terminal-hud-for-anthropic-api-monitoring)
+  - [Table of contents](#table-of-contents)
+  - [Quick start](#quick-start)
+  - [Preview](#preview)
+  - [The power of three: one logic, three runtimes](#the-power-of-three-one-logic-three-runtimes)
+  - [Statusline features](#statusline-features)
+  - [Statusline output format](#statusline-output-format)
+    - [Line 1 — session identity](#line-1--session-identity)
+    - [Lines 3–5 — gradient bars](#lines-35--gradient-bars)
+    - [Line 6 — extra usage](#line-6--extra-usage)
+  - [Choose your variant](#choose-your-variant)
+  - [PowerShell — Windows](#powershell--windows)
+    - [Requirements](#requirements)
+    - [Installation](#installation)
+      - [1. Place the script](#1-place-the-script)
+      - [2. Register in Claude Code settings](#2-register-in-claude-code-settings)
+      - [3. Verify](#3-verify)
+    - [Configuration](#configuration)
+    - [Testing](#testing)
+    - [Reset cache](#reset-cache)
+    - [PowerShell troubleshooting](#powershell-troubleshooting)
+  - [Bash — Linux / macOS / WSL](#bash--linux--macos--wsl)
+    - [Requirements](#requirements-1)
+    - [Installation](#installation-1)
+      - [1. Install dependencies](#1-install-dependencies)
+      - [2. Place the script](#2-place-the-script)
+      - [3. Register in Claude Code settings](#3-register-in-claude-code-settings)
+      - [4. Verify](#4-verify)
+    - [Configuration](#configuration-1)
+    - [Testing](#testing-1)
+    - [Reset cache](#reset-cache-1)
+    - [Bash troubleshooting](#bash-troubleshooting)
+  - [Python — All platforms](#python--all-platforms)
+    - [Requirements](#requirements-2)
+    - [Installation](#installation-2)
+      - [1. Place the script](#1-place-the-script-1)
+      - [2. Register in Claude Code settings](#2-register-in-claude-code-settings-1)
+      - [3. Verify](#3-verify-1)
+    - [Configuration](#configuration-2)
+    - [Testing](#testing-2)
+    - [Reset cache](#reset-cache-2)
+    - [Python troubleshooting](#python-troubleshooting)
+  - [Set effort level](#set-effort-level)
+    - [Common issues](#common-issues)
+  - [Localisation](#localisation)
+    - [Supported locales](#supported-locales)
+    - [What adapts](#what-adapts)
+    - [Auto-detection](#auto-detection)
+  - [Architecture](#architecture)
+    - [Data flow](#data-flow)
+    - [Cache files](#cache-files)
+    - [Settings file cascade](#settings-file-cascade)
+    - [Performance highlights](#performance-highlights)
+    - [Security](#security)
+  - [Contributing](#contributing)
+    - [Development workflow](#development-workflow)
+  - [File structure](#file-structure)
+  - [License](#license)
+
+---
+
+## Quick start
+
+Get the Claude Code statusline running in three steps:
+
+1. **Copy the script** for your platform into `.claude/` inside your project root (see [Choose your variant](#choose-your-variant) for platform-specific commands).
+2. **Register it** in `.claude/settings.local.json`:
+   ```json
+   {
+     "statusLine": {
+       "type": "command",
+       "command": "<runtime> /absolute/path/to/.claude/statusline.<ext>"
+     }
+   }
+   ```
+   Replace `<runtime>` and `<ext>` with the values for your platform (`powershell.exe` / `ps1`, `bash` / `sh`, or `python3` / `py`).
+3. **Set an effort level** in Claude Code — the statusline shows `Not Set` until you do:
+   ```
+   /effort medium
+   ```
+
+The HUD appears automatically on the next Claude Code render cycle. Full per-platform instructions are below.
 
 ---
 
 ## Preview
 
-![Claude Code Statusline — live HUD with gradient bars](assets/preview.png)
+![Screenshot of Claude Code statusline preview — green-to-red gradient bars for context window and API usage, with reset timestamps.](assets/preview.png)
 
 The gradient bars transition **green → yellow → orange → red** using per-bucket ANSI RGB true-color interpolation. The percentage label inherits the same colour as the bar tip.
 
 ---
 
-## Features
+## The power of three: one logic, three runtimes
+
+The core strength of this project is the perfect consistency between its three implementations. Whether you are on Windows, macOS, or Linux, you get the exact same UI, features, and performance.
+
+- **Native performance:** Every script is optimised for its environment using only standard libraries or ubiquitous tools like `jq`.
+- **Identical output:** The 6-line ANSI RGB layout is pixel-perfect across all variants.
+- **Unified intelligence:** All versions share the same caching logic (TTL 8s–120s) and security model.
+
+---
+
+## Statusline features
 
 | # | Feature | Details |
 |---|---------|---------|
@@ -52,11 +131,11 @@ The gradient bars transition **green → yellow → orange → red** using per-b
 | 7 | **[Localisation](#localisation)** | 16 locales — currency symbol and format, date order and separators, 12h/24h clock, weekday names in native language, and UI labels in 8 languages, all detected automatically from the system locale |
 | 8 | **Caching** | Every I/O-heavy operation is cached (TTL: 120 s API · 8 s git · 30 s effort) — the UI never blocks |
 | 9 | **Atomic writes** | Cache files written via temp → rename; never a partial read |
-| 10 | **Security** | stdin/file size caps, OAuth token control-character validation, no string interpolation into JSON — see [SECURITY.md](SECURITY.md) |
+| 10 | **Security** | stdin/file size caps, OAuth token control-character validation, no string interpolation into JSON |
 
 ---
 
-## Output Format
+## Statusline output format
 
 All three variants produce **identical** output: 6 content lines separated by 90-character `─` dividers.
 
@@ -69,7 +148,7 @@ Line 5: USAGE WK: [49-bucket gradient bar]  XX% | RST: DDD dd/MM H: HH:mm
 Line 6: XTRA USG: True/False | USED: X.XX € | MONTH: X.XX € | UTIL: X% | BALANCE: X.XX €
 ```
 
-### Line 1 — Session Identity
+### Line 1 — session identity
 
 | Segment | Source |
 |---------|--------|
@@ -80,7 +159,7 @@ Line 6: XTRA USG: True/False | USED: X.XX € | MONTH: X.XX € | UTIL: X% | BAL
 | `+N` (green) | Staged files from `git status --porcelain` |
 | `~N` (yellow) | Unstaged modified files from `git status --porcelain` |
 
-### Lines 3–5 — Gradient Bars
+### Lines 3–5 — gradient bars
 
 Each bucket is coloured individually via ANSI RGB escape codes using smooth three-segment interpolation:
 
@@ -92,7 +171,7 @@ Green      Yellow  Orange    Red
 
 Empty buckets render in dim gray `RGB(60, 60, 60)`. Bar widths: **76 buckets** for context, **49 buckets** for 5H/WK usage.
 
-### Line 6 — Extra Usage
+### Line 6 — extra usage
 
 | Field | Description |
 |-------|-------------|
@@ -106,7 +185,7 @@ Monetary values use the system locale: Italian example `4,20 €`; US example `$
 
 ---
 
-## Choose Your Variant
+## Choose your variant
 
 | Platform | Recommended script | Runtime |
 |----------|--------------------|---------|
@@ -131,6 +210,8 @@ All three scripts produce identical output. Pick one and follow the correspondin
 | Git | any | Optional — branch/status display only |
 
 ### Installation
+
+Follow these steps to set up the Claude Code statusline on Windows.
 
 #### 1. Place the script
 
@@ -201,13 +282,13 @@ pwsh -NoProfile tests/test_statusline.ps1
   | powershell.exe -NoProfile -ExecutionPolicy Bypass -File statusline.ps1
 ```
 
-### Reset Cache
+### Reset cache
 
 ```powershell
 Remove-Item $env:TEMP\claude_*.json -ErrorAction SilentlyContinue
 ```
 
-### Troubleshooting
+### PowerShell troubleshooting
 
 **Bars show garbled characters or boxes**
 Use [Windows Terminal](https://aka.ms/terminal). The legacy `cmd.exe` conhost does not support ANSI RGB true-color.
@@ -238,6 +319,8 @@ Ensure you are using Windows Terminal. The script calls `[Console]::OutputEncodi
 | Terminal | ANSI RGB-capable | iTerm2, GNOME Terminal, Windows Terminal (WSL) |
 
 ### Installation
+
+Follow these steps to set up the Claude Code statusline on Linux, macOS, or WSL.
 
 #### 1. Install dependencies
 
@@ -318,7 +401,7 @@ echo '{"model":{"display_name":"Sonnet 4.6"},"context_window":{"context_window_s
 bash -x statusline.sh < /dev/null 2>&1 | head -40
 ```
 
-### Reset Cache
+### Reset cache
 
 ```bash
 rm -f "${TMPDIR:-/tmp}"/claude_*.json
@@ -330,7 +413,7 @@ Verify cache file permissions (must be `0600`, set automatically by `mktemp`):
 stat -c %a "${TMPDIR:-/tmp}/claude_usage_cache.json"
 ```
 
-### Troubleshooting
+### Bash troubleshooting
 
 **Bars show garbled characters or boxes**
 Verify `echo $TERM` shows `xterm-256color` or similar, and `locale` includes `UTF-8`. On WSL, use Windows Terminal.
@@ -354,7 +437,7 @@ bash -x statusline.sh < /dev/null 2>&1 | head -40
 
 ---
 
-## Python — All Platforms
+## Python — All platforms
 
 ### Requirements
 
@@ -365,6 +448,8 @@ bash -x statusline.sh < /dev/null 2>&1 | head -40
 | Terminal | ANSI RGB-capable | Windows Terminal, iTerm2, GNOME Terminal |
 
 ### Installation
+
+Follow these steps to set up the Claude Code statusline with Python.
 
 #### 1. Place the script
 
@@ -448,7 +533,7 @@ echo '{"model":{"display_name":"Sonnet 4.6"},"context_window":{"context_window_s
   | python3 statusline.py
 ```
 
-### Reset Cache
+### Reset cache
 
 ```bash
 # Unix
@@ -463,7 +548,7 @@ python3 -c "import tempfile, pathlib; [p.unlink() for p in pathlib.Path(tempfile
 Remove-Item $env:TEMP\claude_*.json -ErrorAction SilentlyContinue
 ```
 
-### Troubleshooting
+### Python troubleshooting
 
 **Bars show garbled characters or boxes**
 The terminal must support ANSI RGB true-color and UTF-8. Use Windows Terminal on Windows, iTerm2 or GNOME Terminal on macOS/Linux.
@@ -492,7 +577,7 @@ echo '{}' | python statusline.py
 
 ---
 
-## Set Effort Level
+## Set effort level
 
 The effort level is **not set automatically**. Until configured, the statusline shows `Not Set` on line 1.
 
@@ -521,7 +606,7 @@ claude login
 
 The statusline automatically adapts to the system locale — **no configuration required**. Currency amounts, date formats, clock style, and UI labels all change to match the user's regional settings.
 
-### Supported Locales
+### Supported locales
 
 16 locales are built in. Unrecognised locales fall back to `en_US` for formats and `en` for UI labels.
 
@@ -544,7 +629,7 @@ The statusline automatically adapts to the system locale — **no configuration 
 | `de_CH` | Swiss German | `CHF 4.20` | `SO 15.06 H: 14:30` | 24h |
 | `it_CH` | Swiss Italian | `CHF 4.20` | `LUN 15/06 H: 14:30` | 24h |
 
-### What Adapts
+### What adapts
 
 **Currency (lines 4–6)**
 
@@ -573,7 +658,7 @@ The statusline automatically adapts to the system locale — **no configuration 
 | Japanese (`ja`) | Effort | N/A | STATUS ERROR |
 | Chinese (`zh`) | Effort | N/A | STATUS ERROR |
 
-### Auto-Detection
+### Auto-detection
 
 Each runtime reads the locale from the operating system — no environment variable needs to be set manually:
 
@@ -587,7 +672,7 @@ Each runtime reads the locale from the operating system — no environment varia
 
 ## Architecture
 
-### Data Flow
+### Data flow
 
 ```
 Claude Code stdin (JSON)
@@ -602,7 +687,7 @@ Claude Code stdin (JSON)
     6-line ANSI RGB output → Claude Code UI
 ```
 
-### Cache Files
+### Cache files
 
 Stored in the system temp directory (`%TEMP%` on Windows, `$TMPDIR` / `/tmp` on Unix).
 
@@ -615,7 +700,7 @@ Stored in the system temp directory (`%TEMP%` on Windows, `$TMPDIR` / `/tmp` on 
 
 TTL is checked via filesystem mtime (`stat`), not a timestamp embedded in the JSON. The git cache is additionally invalidated when `workspace.current_dir` changes.
 
-### Settings File Cascade
+### Settings file cascade
 
 `effortLevel` is not present in the Claude Code stdin JSON. Each variant reads it from settings files in priority order:
 
@@ -624,7 +709,7 @@ TTL is checked via filesystem mtime (`stat`), not a timestamp embedded in the JS
 3. `~/.claude/settings.local.json` (user-local)
 4. `~/.claude/settings.json` (user-global)
 
-### Performance Highlights
+### Performance highlights
 
 | Concern | Solution |
 |---------|----------|
@@ -663,7 +748,7 @@ Contributions are welcome. Please follow these guidelines:
 
 3. **No new dependencies** — the bash variant requires only `jq`, `curl`, `awk`, `git`, and POSIX tools. The Python variant requires only the stdlib. Do not add new external dependencies.
 
-4. **Security model** — all dynamic values written to cache must go through a safe JSON serialiser. Do not use string interpolation for JSON construction. See [SECURITY.md](SECURITY.md) for the full security, stability, and performance requirements.
+4. **Security model** — all dynamic values written to cache must go through a safe JSON serialiser. Do not use string interpolation for JSON construction. See the security documentation (SECURITY.md) for the full requirements.
 
 5. **Performance model** — do not add subshells inside loops, extra `jq` / `python` / `powershell` invocations per field, or synchronous I/O that could block the Claude Code render cycle.
 
@@ -689,7 +774,7 @@ pwsh -NoProfile tests/test_statusline.ps1
 
 ---
 
-## File Structure
+## File structure
 
 ```
 .

@@ -549,7 +549,7 @@ def main() -> None:
     sep = f'{cGr}{"─" * 90}{cR}'
 
     # 9. Gradient bars and percentage colors
-    bar_ctx = gradient_bar(pct, 76)
+    bar_ctx = gradient_bar(pct, 92)
     bar_5h  = gradient_bar(u5h, 49)
     bar_wk  = gradient_bar(uwk, 49)
     pc_ctx  = pct_color(pct)
