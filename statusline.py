@@ -14,7 +14,8 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from urllib.request import Request, urlopen
@@ -32,6 +33,9 @@ _STDIN_MAX_BYTES = 1 * 1024 * 1024  # 1 MB — sanity cap on stdin payload
 _CRED_MAX_BYTES          = 64 * 1024        # 64 KB — credentials file is never legitimately large
 _API_RESPONSE_MAX_BYTES  = 1 * 1024 * 1024  # 1 MB — sanity cap on API response
 _SETTINGS_MAX_BYTES      = 256 * 1024       # 256 KB — settings files are never legitimately large
+PEAK_TZ          = 'America/New_York'  # Eastern Time (DST-aware via zoneinfo)
+PEAK_START_HOUR  = 8                   # ET hour — peak window start (inclusive)
+PEAK_END_HOUR    = 14                  # ET hour — peak window end (exclusive)
 
 CACHE_DIR         = Path(tempfile.gettempdir())
 USAGE_CACHE       = CACHE_DIR / 'claude_usage_cache.json'
@@ -204,6 +208,30 @@ def fmt_remaining(raw: str) -> str:
         return f' [{pre}{h:02d}:{m:02d}{post}]'
     except (ValueError, OverflowError, OSError):
         return ''
+
+
+def peak_info() -> tuple:
+    """Return (state, hms): 'PEAK'|'OFF-PEAK' and HH:MM:SS countdown to next state change."""
+    try:
+        now = datetime.now(ZoneInfo(PEAK_TZ))
+        wd  = now.weekday()  # 0=Mon … 4=Fri, 5=Sat, 6=Sun
+        hh  = now.hour
+        is_weekday = wd < 5
+        is_peak    = is_weekday and PEAK_START_HOUR <= hh < PEAK_END_HOUR
+        if is_peak:
+            nxt = now.replace(hour=PEAK_END_HOUR, minute=0, second=0, microsecond=0)
+        elif is_weekday and hh < PEAK_START_HOUR:
+            nxt = now.replace(hour=PEAK_START_HOUR, minute=0, second=0, microsecond=0)
+        else:
+            nxt = (now + timedelta(days=1)).replace(hour=PEAK_START_HOUR, minute=0, second=0, microsecond=0)
+            while nxt.weekday() >= 5:
+                nxt += timedelta(days=1)
+        delta = int(max(0, (nxt - now).total_seconds()))
+        h, rem = divmod(delta, 3600)
+        m, s   = divmod(rem, 60)
+        return ('PEAK', f'{h:02d}:{m:02d}:{s:02d}') if is_peak else ('OFF-PEAK', f'{h:02d}:{m:02d}:{s:02d}')
+    except Exception:
+        return ('OFF-PEAK', '00:00:00')
 
 
 def fmt_tokens(n: int) -> str:
@@ -526,8 +554,9 @@ def main() -> None:
     cR  = f'{E}[0m'    # reset
     cC  = f'{E}[36m'   # cyan
     cG  = f'{E}[32m'   # green
-    cY  = f'{E}[33m'   # yellow
-    cGr = f'{E}[90m'   # gray
+    cY   = f'{E}[33m'   # yellow
+    cRed = f'{E}[31m'   # red
+    cGr  = f'{E}[90m'   # gray
     cW  = f'{E}[37m'   # white
     cBr = f'{E}[38;2;186;230;253m'   # branch (light blue)
     cOr = f'{E}[38;2;255;165;0m'     # orange
@@ -576,6 +605,11 @@ def main() -> None:
     extra_color = cG if extra_usage is True else cOr
     extra_label = 'True' if extra_usage is True else 'False'
 
+    _peak_state, _peak_hms = peak_info()
+    _peak_clr = cRed if _peak_state == 'PEAK' else cG
+    _peak_lbl = 'Off-peak' if _peak_state == 'PEAK' else 'Peak'
+    _peak_seg = f' | {_peak_clr}\033[1m{_peak_state}\033[0m{cR} ({cW}{_peak_lbl} in {_peak_hms}{cR})'
+
     # 11. Output — 6 lines + separators
     # Collect everything into a list and do a single write to minimise
     # system calls (one flush at the end)
@@ -591,7 +625,7 @@ def main() -> None:
         f' | {cW}IN:{cR} {fmt_tokens(tok_in)}'
         f' | {cW}OUT:{cR} {fmt_tokens(tok_out)}'
         f' | {cW}Cached:{cR} {fmt_tokens(tok_cached)}'
-        f' | {cW}Total:{cR} {fmt_tokens(tok_total)}\n',
+        f' | {cW}Total:{cR} {fmt_tokens(tok_total)}{_peak_seg}\n',
 
         f'{sep}\n',
 

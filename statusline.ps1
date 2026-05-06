@@ -32,6 +32,10 @@ $GIT_TTL      = 8     # seconds — git branch + status
 $EFFORT_TTL   = 30    # seconds — settings file read
 $ERROR_TTL    = 30    # seconds — API error backoff (4d)
 $API_TIMEOUT  = 3     # seconds — HTTP API call timeout
+$PEAK_TZ_WIN     = "Eastern Standard Time"  # Windows TZ ID
+$PEAK_TZ_IANA    = "America/New_York"       # IANA TZ ID (PS Core on Linux/macOS)
+$PEAK_START_HOUR = 8                        # ET hour — peak window start (inclusive)
+$PEAK_END_HOUR   = 14                       # ET hour — peak window end (exclusive)
 
 # Locale → currency table: @{ Symbol; DecSep; SymBefore; SymSpace; Decimals }
 $euro = [char]0x20AC
@@ -202,6 +206,33 @@ try {
             $timeStr = if ($fmt.H24) { $d.ToString('HH:mm') } else { $d.ToString('hh:mm tt') }
             return "$day $dateStr H: $timeStr"
         } catch { return $script:I18nFmt.NA }
+    }
+
+    function Get-PeakInfo {
+        try {
+            try   { $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById($PEAK_TZ_WIN) }
+            catch { $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById($PEAK_TZ_IANA) }
+            $nowET  = [System.TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, $tz)
+            $wd     = [int]$nowET.DayOfWeek   # 0=Sun, 1=Mon … 5=Fri, 6=Sat
+            $isWD   = $wd -ge 1 -and $wd -le 5
+            $isPeak = $isWD -and $nowET.Hour -ge $PEAK_START_HOUR -and $nowET.Hour -lt $PEAK_END_HOUR
+            if ($isPeak) {
+                $nxt = [DateTime]::new($nowET.Year, $nowET.Month, $nowET.Day, $PEAK_END_HOUR, 0, 0)
+            } elseif ($isWD -and $nowET.Hour -lt $PEAK_START_HOUR) {
+                $nxt = [DateTime]::new($nowET.Year, $nowET.Month, $nowET.Day, $PEAK_START_HOUR, 0, 0)
+            } else {
+                $nxt = [DateTime]::new($nowET.Year, $nowET.Month, $nowET.Day, $PEAK_START_HOUR, 0, 0).AddDays(1)
+                while ([int]$nxt.DayOfWeek -eq 0 -or [int]$nxt.DayOfWeek -eq 6) { $nxt = $nxt.AddDays(1) }
+            }
+            $delta = [int][Math]::Max(0, ($nxt - $nowET).TotalSeconds)
+            $h = [int][Math]::Floor($delta / 3600)
+            $m = [int][Math]::Floor(($delta % 3600) / 60)
+            $s = $delta % 60
+            $hms = "$($h.ToString('D2')):$($m.ToString('D2')):$($s.ToString('D2'))"
+            return @{ IsPeak = $isPeak; State = if ($isPeak) { 'PEAK' } else { 'OFF-PEAK' }; HMS = $hms }
+        } catch {
+            return @{ IsPeak = $false; State = 'OFF-PEAK'; HMS = '00:00:00' }
+        }
     }
 
     function Get-Remaining($rawDate) {
@@ -473,8 +504,12 @@ try {
     # Line 1: ENV: Model (ctx) | Effort: X | 📁 dir | 🌿 Branch: main +S~M
     [void]$sb.AppendLine("${cWhite}ENV:$cReset$cCyan $model$cReset $cGray(${ctxMaxFmt} token)$cReset | ${cWhite}$($script:I18nFmt.Effort):$cReset $effort | $icoFolder ${cWhite}$dir$cReset |$branchStr")
     [void]$sb.AppendLine($sep100)
-    # Line 2: Session tokens — IN | OUT | Cached | Total
-    [void]$sb.AppendLine("${cWhite}CONTEXT_WINDOW$cReset | ${cWhite}IN:$cReset $(Format-Tokens $tokIn) | ${cWhite}OUT:$cReset $(Format-Tokens $tokOut) | ${cWhite}Cached:$cReset $(Format-Tokens $tokCached) | ${cWhite}Total:$cReset $(Format-Tokens $tokTotal)")
+    # Line 2: Session tokens — IN | OUT | Cached | Total | PEAK/OFF-PEAK
+    $peak      = Get-PeakInfo
+    $peakColor = if ($peak.IsPeak) { $cRed } else { $cGreen }
+    $peakLbl   = if ($peak.IsPeak) { 'Off-peak' } else { 'Peak' }
+    $peakSeg   = " | ${peakColor}$e[1m$($peak.State)${cReset} (${cWhite}${peakLbl} in $($peak.HMS)${cReset})"
+    [void]$sb.AppendLine("${cWhite}CONTEXT_WINDOW$cReset | ${cWhite}IN:$cReset $(Format-Tokens $tokIn) | ${cWhite}OUT:$cReset $(Format-Tokens $tokOut) | ${cWhite}Cached:$cReset $(Format-Tokens $tokCached) | ${cWhite}Total:$cReset $(Format-Tokens $tokTotal)${peakSeg}")
     [void]$sb.AppendLine($sep100)
     # Line CONTEXT: label(9) + bar(92) + " XXX%" (5) = 106
     [void]$sb.AppendLine("${cWhite}CONTEXT:$cReset $ctxBar $(Get-PctColor $pct)$("{0,3}%" -f $pct)$cReset")

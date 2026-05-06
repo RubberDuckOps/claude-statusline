@@ -16,6 +16,9 @@ readonly STDIN_MAX_BYTES=1048576  # 1 MB — sanity cap on stdin payload
 readonly CRED_MAX_BYTES=65536     # 64 KB — credentials file is never legitimately large
 readonly API_RESPONSE_MAX_BYTES=1048576  # 1 MB — sanity cap on API response
 readonly SETTINGS_MAX_BYTES=262144       # 256 KB — settings files are never legitimately large
+readonly PEAK_TZ="America/New_York"     # Eastern Time (DST-aware)
+readonly PEAK_START_HOUR=8              # ET hour — peak window start (inclusive)
+readonly PEAK_END_HOUR=14               # ET hour — peak window end (exclusive)
 
 readonly CACHE_DIR="${TMPDIR:-/tmp}"
 readonly USAGE_CACHE="${CACHE_DIR}/claude_usage_cache.json"
@@ -145,6 +148,7 @@ readonly _ESC=$'\033'
 readonly cReset="${_ESC}[0m"
 readonly cCyan="${_ESC}[36m"
 readonly cGreen="${_ESC}[32m"
+readonly cRed="${_ESC}[31m"
 readonly cYellow="${_ESC}[33m"
 readonly cGray="${_ESC}[90m"
 readonly cWhite="${_ESC}[37m"
@@ -240,6 +244,43 @@ fmt_date() {
 # fmt_remaining RAW_DATE
 # Returns " [pre HH:MM post]" (time left until reset), or "" if elapsed/missing.
 # ---------------------------------------------------------------------------
+peak_info() {
+    local now_parts now_wd now_hh now_mm now_ss now_epoch
+    now_parts=$(TZ="$PEAK_TZ" date '+%u %H %M %S %s' 2>/dev/null) \
+        || { printf 'OFF-PEAK\t00:00:00\n'; return; }
+    read -r now_wd now_hh now_mm now_ss now_epoch <<< "$now_parts"
+    now_wd=$(( 10#$now_wd )); now_hh=$(( 10#$now_hh ))
+    now_mm=$(( 10#$now_mm )); now_ss=$(( 10#$now_ss ))
+    local is_peak=0
+    [[ $now_wd -ge 1 && $now_wd -le 5 && $now_hh -ge $PEAK_START_HOUR && $now_hh -lt $PEAK_END_HOUR ]] \
+        && is_peak=1
+    local sod=$(( now_hh * 3600 + now_mm * 60 + now_ss ))
+    local next_epoch
+    if (( is_peak )); then
+        next_epoch=$(( now_epoch + PEAK_END_HOUR * 3600 - sod ))
+    elif [[ $now_wd -ge 1 && $now_wd -le 5 ]] && (( now_hh < PEAK_START_HOUR )); then
+        next_epoch=$(( now_epoch + PEAK_START_HOUR * 3600 - sod ))
+    else
+        local days_ahead=1 future_wd
+        while true; do
+            future_wd=$(( (now_wd - 1 + days_ahead) % 7 + 1 ))
+            [[ $future_wd -le 5 ]] && break
+            (( days_ahead++ ))
+        done
+        next_epoch=$(( now_epoch + days_ahead * 86400 - sod + PEAK_START_HOUR * 3600 ))
+    fi
+    local delta=$(( next_epoch - now_epoch ))
+    (( delta < 0 )) && delta=0
+    local hh=$(( delta / 3600 ))
+    local mm=$(( (delta % 3600) / 60 ))
+    local ss=$(( delta % 60 ))
+    if (( is_peak )); then
+        printf 'PEAK\t%02d:%02d:%02d\n' "$hh" "$mm" "$ss"
+    else
+        printf 'OFF-PEAK\t%02d:%02d:%02d\n' "$hh" "$mm" "$ss"
+    fi
+}
+
 fmt_remaining() {
     local raw="$1"
     [[ -z "$raw" ]] && return
@@ -734,7 +775,11 @@ main() {
     # -----------------------------------------------------------------------
     local line1 line2 line3 line4 line5 line6
     line1="${cWhite}ENV:${cReset}${cCyan} ${model}${cReset} ${cGray}(${ctx_max_fmt} token)${cReset} | ${cWhite}${I18N_EFFORT}:${cReset} ${effort} | ${icoFolder} ${cWhite}${dir}${cReset} |${branch_str}"
-    line2="${cWhite}CONTEXT_WINDOW${cReset} | ${cWhite}IN:${cReset} ${tok_in_fmt} | ${cWhite}OUT:${cReset} ${tok_out_fmt} | ${cWhite}Cached:${cReset} ${tok_cached_fmt} | ${cWhite}Total:${cReset} ${tok_total_fmt}"
+    local peak_state peak_hms peak_color peak_lbl
+    IFS=$'\t' read -r peak_state peak_hms < <(peak_info)
+    peak_color="$cRed"; peak_lbl="Off-peak"
+    [[ "$peak_state" != "PEAK" ]] && peak_color="$cGreen" && peak_lbl="Peak"
+    line2="${cWhite}CONTEXT_WINDOW${cReset} | ${cWhite}IN:${cReset} ${tok_in_fmt} | ${cWhite}OUT:${cReset} ${tok_out_fmt} | ${cWhite}Cached:${cReset} ${tok_cached_fmt} | ${cWhite}Total:${cReset} ${tok_total_fmt} | ${peak_color}${_ESC}[1m${peak_state}${cReset} (${cWhite}${peak_lbl} in ${peak_hms}${cReset})"
     line3="${cWhite}CONTEXT:${cReset} ${ctx_bar} ${ctx_pct_color}$(printf '%3d%%' "$pct")${cReset}"
     line4="${cWhite}USAGE 5H:${cReset} ${u5h_bar} ${u5h_pct_disp}${stale_flag}$(printf '%3d%%' "$u5h")${cReset} | ${cYellow}RST:${cReset} ${uvc}${r5h}${ucr}$(fmt_remaining "$raw_5h_reset")"
     line5="${cWhite}USAGE WK:${cReset} ${uwk_bar} ${uwk_pct_disp}${stale_flag}$(printf '%3d%%' "$uwk")${cReset} | ${cYellow}RST:${cReset} ${uvc}${rwk}${ucr}$(fmt_remaining "$raw_wk_reset")"

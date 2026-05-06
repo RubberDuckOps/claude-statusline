@@ -23,6 +23,7 @@ Claude Code Statusline is a high-performance terminal dashboard that provides re
   - [Statusline features](#statusline-features)
   - [Statusline output format](#statusline-output-format)
     - [Line 1 — session identity](#line-1--session-identity)
+    - [Line 2 — token counters & peak state](#line-2--token-counters--peak-state)
     - [Lines 3–5 — gradient bars](#lines-35--gradient-bars)
     - [Line 6 — extra usage](#line-6--extra-usage)
   - [Choose your variant](#choose-your-variant)
@@ -132,6 +133,7 @@ The core strength of this project is the perfect consistency between its three i
 | 8 | **Caching** | Every I/O-heavy operation is cached (TTL: 120 s API · 8 s git · 30 s effort) — the UI never blocks |
 | 9 | **Atomic writes** | Cache files written via temp → rename; never a partial read |
 | 10 | **Security** | stdin/file size caps, OAuth token control-character validation, no string interpolation into JSON |
+| 11 | **Peak / Off-peak indicator** | DST-aware Eastern Time window (Mon–Fri 08:00–14:00 ET); line 2 shows current state in colour + countdown to next transition |
 
 ---
 
@@ -141,7 +143,7 @@ All three variants produce **identical** output: 6 content lines separated by 90
 
 ```
 Line 1: ENV: <model> (<ctx>) | Effort: <level> | 📁 <dir> | 🌿 Branch: <name> +N~N
-Line 2: CONTEXT_WINDOW | IN: Xk | OUT: Xk | Cached: Xk | Total: Xk
+Line 2: CONTEXT_WINDOW | IN: Xk | OUT: Xk | Cached: Xk | Total: Xk | PEAK (Off-peak in HH:MM:SS)
 Line 3: CONTEXT:  [76-bucket gradient bar]  XX%
 Line 4: USAGE 5H: [49-bucket gradient bar]  XX% | RST: DDD dd/MM H: HH:mm
 Line 5: USAGE WK: [49-bucket gradient bar]  XX% | RST: DDD dd/MM H: HH:mm
@@ -158,6 +160,17 @@ Line 6: XTRA USG: True/False | USED: X.XX € | MONTH: X.XX € | UTIL: X% | BAL
 | `🌿 Branch: <name>` | `git branch --show-current` |
 | `+N` (green) | Staged files from `git status --porcelain` |
 | `~N` (yellow) | Unstaged modified files from `git status --porcelain` |
+
+### Line 2 — token counters & peak state
+
+| Segment | Description |
+|---------|-------------|
+| `CONTEXT_WINDOW` | Static label |
+| `IN / OUT / Cached / Total` | Session token counts, auto-formatted as `K` above 1 000 |
+| **`PEAK`** (red) | Current window Mon–Fri 08:00–14:00 ET — countdown shows time until off-peak |
+| **`OFF-PEAK`** (green) | Outside peak window — countdown shows time until next peak window opens |
+
+The state label is coloured **red** during peak and **green** during off-peak. The parenthetical label flips — when in **`PEAK`** it reads `Off-peak in HH:MM:SS`; when in **`OFF-PEAK`** it reads `Peak in HH:MM:SS`. DST is handled automatically via the system timezone database.
 
 ### Lines 3–5 — gradient bars
 
@@ -191,7 +204,7 @@ Monetary values use the system locale: Italian example `4,20 €`; US example `$
 |----------|--------------------|---------|
 | Windows (native) | [`statusline.ps1`](#powershell--windows) | PowerShell 5.1+ — ships with Windows, no install needed |
 | Linux / macOS / WSL | [`statusline.sh`](#bash--linux--macos--wsl) | bash 4+, jq, curl |
-| Any platform (Python) | [`statusline.py`](#python--all-platforms) | Python 3.8+ stdlib only, no packages |
+| Any platform (Python) | [`statusline.py`](#python--all-platforms) | Python 3.9+ stdlib only, no packages |
 
 All three scripts produce identical output. Pick one and follow the corresponding guide below.
 
@@ -261,12 +274,20 @@ Tunable constants are at the top of `statusline.ps1`. Defaults are suitable for 
 | `$ERROR_TTL` | `30` s | Back-off window after an API auth error |
 | `$API_TIMEOUT` | `3` s | HTTP request hard deadline |
 | `$GIT_SUBPROCESS_TIMEOUT` | `5` s | `git` subprocess hard deadline |
+| `$PEAK_TZ_WIN` | `"Eastern Standard Time"` | Windows TZ ID for peak-window calculation |
+| `$PEAK_TZ_IANA` | `"America/New_York"` | IANA TZ ID (PS Core on Linux/macOS) |
+| `$PEAK_START_HOUR` | `8` | ET hour — peak window start (inclusive) |
+| `$PEAK_END_HOUR` | `14` | ET hour — peak window end (exclusive) |
 
 ```powershell
 # statusline.ps1 — top of file
 $USAGE_TTL  = 120   # seconds
 $GIT_TTL    = 8     # seconds
 $EFFORT_TTL = 30    # seconds
+$PEAK_TZ_WIN     = "Eastern Standard Time"
+$PEAK_TZ_IANA    = "America/New_York"
+$PEAK_START_HOUR = 8
+$PEAK_END_HOUR   = 14
 ```
 
 **Tuning tips:** Increase `$GIT_TTL` (e.g. to `15`) on large repositories where `git status` is slow. Increase `$API_TIMEOUT` on metered connections.
@@ -373,12 +394,18 @@ Tunable constants are at the top of `statusline.sh`. Defaults are suitable for m
 | `ERROR_TTL` | `30` s | Back-off window after an API auth error |
 | `API_TIMEOUT` | `3` s | HTTP request hard deadline |
 | `GIT_SUBPROCESS_TIMEOUT` | `5` s | `git` subprocess hard deadline |
+| `PEAK_TZ` | `"America/New_York"` | IANA TZ ID for peak-window calculation (DST-aware) |
+| `PEAK_START_HOUR` | `8` | ET hour — peak window start (inclusive) |
+| `PEAK_END_HOUR` | `14` | ET hour — peak window end (exclusive) |
 
 ```bash
 # statusline.sh — top of file
 readonly USAGE_TTL=120
 readonly GIT_TTL=8
 readonly EFFORT_TTL=30
+readonly PEAK_TZ="America/New_York"
+readonly PEAK_START_HOUR=8
+readonly PEAK_END_HOUR=14
 ```
 
 **Tuning tips:** Increase `GIT_TTL` (e.g. to `15`) on large repositories where `git status` is slow. Increase `API_TIMEOUT` on metered connections.
@@ -509,12 +536,18 @@ Tunable constants are at the top of `statusline.py`. Defaults are suitable for m
 | `ERROR_TTL` | `30` s | Back-off window after an API auth error |
 | `API_TIMEOUT` | `3` s | HTTP request hard deadline |
 | `GIT_SUBPROCESS_TIMEOUT` | `5` s | `git` subprocess hard deadline |
+| `PEAK_TZ` | `'America/New_York'` | IANA TZ ID for peak-window calculation (DST-aware via `zoneinfo`) |
+| `PEAK_START_HOUR` | `8` | ET hour — peak window start (inclusive) |
+| `PEAK_END_HOUR` | `14` | ET hour — peak window end (exclusive) |
 
 ```python
 # statusline.py — top of file
 USAGE_TTL  = 120
 GIT_TTL    = 8
 EFFORT_TTL = 30
+PEAK_TZ         = 'America/New_York'
+PEAK_START_HOUR = 8
+PEAK_END_HOUR   = 14
 ```
 
 **Tuning tips:** Increase `GIT_TTL` (e.g. to `15`) on large repositories where `git status` is slow. Increase `API_TIMEOUT` on metered connections.
